@@ -8,10 +8,9 @@ amend, or reject. No individual `sorry` has been attempted.
   finite alphabets, average block-error probability, achievability strictly
   below capacity, weak converse above it. Not general/continuous channels, not
   Shannon–Hartley, not zero-error capacity, not the strong converse.
-- **State:** `lake build` succeeds. **5** `sorry`s remain, all named and precisely
-  typed — the six self-contained ones have since been discharged. Both top-level
-  theorems are *fully proved from those `sorry`s* — the connecting arguments are
-  real Lean proofs, not placeholders.
+- **State:** `lake build` succeeds. **2** `sorry`s remain: single-letterisation
+  (S9) and random-coding achievability (S10). Nine of the original eleven are
+  proved. Both top-level theorems are *fully proved from those `sorry`s*.
 - **Toolchain:** Lean 4.32.2, Mathlib v4.32.2.
 
 ---
@@ -103,7 +102,7 @@ D-10 as a correction). These are the ones to reject first if you disagree.
 
 ## 3. The `sorry` list
 
-**5 open, 6 discharged.** Classification uses the brief's categories. Note which
+**2 open, 9 discharged.** Classification uses the brief's categories. Note which
 categories came out **empty** — that is itself a result:
 
 - **Definition:** none. Every definition is concrete, so no `sorry` can hide a
@@ -118,39 +117,53 @@ categories came out **empty** — that is itself a result:
 
 | id | name | class | type | forced by |
 |----|------|-------|------|-----------|
-| **S2** | `bddAbove_range_mutualInfo` | Lemma | `BddAbove (Set.range fun p : PMF X ↦ W.mutualInfo p)` | well-definedness of `DMC.capacity` (D-7); consumed by S9 |
-| **S7** | `BlockCode.fano_inequality` | Theorem | `condEntropy (c.msgOutJoint W) ≤ 1 + c.avgError W * Real.logb 2 c.card` | `logb_card_le_capacity` |
-| **S8** | `BlockCode.mutualInfo_msgOutJoint_le` | Theorem | `mutualInfo (c.msgOutJoint W) ≤ mutualInfo (c.inOutJoint W)` | `logb_card_le_capacity` |
 | **S9** | `DMC.mutualInfo_power_le` | Theorem | `(W.power n).mutualInfo q ≤ n * W.capacity` | `logb_card_le_capacity` |
 | **S10** | `exists_blockCode_of_lt_mutualInfo` | Theorem | `R < W.mutualInfo p → 0 < ε → ∀ᶠ n in atTop, ∃ c : BlockCode X Y n, (2:ℝ) ^ ((n:ℝ) * R) ≤ (c.card : ℝ) ∧ c.avgError W ≤ ε` | `coding_achievability` |
 
-S7 is Fano's inequality (the `1` is the crude bound `h₂(Pe) ≤ 1`). S8 is the
-data-processing inequality for `M → Xⁿ → Yⁿ`, stated **specialised to the code
-setting** rather than for an abstract Markov chain — a general DPI would need a
-Markov-chain notion nothing yet demands. S9 is single-letterisation.
-
-S9 and S10 are the two that are not routine; they have their own document,
-[`HARD-PARTS.md`](HARD-PARTS.md).
+Both have their own document, [`HARD-PARTS.md`](HARD-PARTS.md). S9 is large but
+standard; S10 needs a decision about which achievability proof to formalise.
 
 ### Discharged
 
 | id | name | note |
 |----|------|------|
 | **S1** | `power_sum_eq_one` | `Fintype.prod_sum` plus row normalisation |
+| **S2** | `bddAbove_range_mutualInfo` | `I ≤ H(Y) ≤ log₂ |Y|`, via the normal form and max-entropy |
 | **S3** | `BlockCode.avgError_le_one` | via a new `condError_le_one` |
 | **S4** | `BlockCode.entropy_messageDist` | entropy of the uniform law is `log₂ |M|` |
-| **S5** | `BlockCode.msgOutJoint_map_fst` | marginal of a `bind`, via `PMF.map_const` |
-| **S6** | `BlockCode.le_rate_of_rpow_le_card` | `Real.logb_rpow` + monotonicity; positivity of `card` genuinely used |
+| **S5** | `BlockCode.msgOutJoint_map_fst` | now just `DMC.joint_map_fst` |
+| **S6** | `BlockCode.le_rate_of_rpow_le_card` | `Real.logb_rpow` + monotonicity |
+| **S7** | `BlockCode.fano_inequality` | Gibbs against an explicit reference weight |
+| **S8** | `BlockCode.mutualInfo_msgOutJoint_le` | turned out to be an **equality** |
 | **S11** | `weak_converse_limsup` | needed `IsCoboundedUnder`, hence `rate_nonneg` |
 
-Five supporting lemmas were forced into existence by those proofs and are also
-proved: `sum_coe_eq_one`, `sum_toReal_eq_one`, `BlockCode.condError_le_one`,
-`BlockCode.avgError_nonneg`, `BlockCode.rate_nonneg`.
+### The entropy toolkit that came out of it
 
-`avgError_nonneg` is worth noting: it was written in the first session, found to
-be consumed by nothing, and deleted rather than left in to pad the graph. S11
-then forced it back — along with `rate_nonneg`, which had not been anticipated
-at all. The discovery discipline worked in both directions.
+Mathlib has no discrete Shannon entropy, so S2/S7/S8 forced one into existence in
+`FiniteDMC/EntropyBounds.lean`. It rests on a single analytic fact,
+`Real.log_le_sub_one_of_pos` — **no Jensen, no convexity machinery**:
+
+- `entropy_nonneg`, `toReal_apply_le_one`
+- `entropy_le_neg_sum_mul_logb` — Gibbs against an arbitrary *sub-probability
+  weight* (`w ≥ 0`, `∑ w ≤ 1`), not just a `PMF`
+- `entropy_le_crossEntropy`, `entropy_le_logb_card`
+- and in `Channel.lean`: `DMC.entropy_joint` (chain rule) and `DMC.mutualInfo_eq`
+  (the normal form `I = H(Y) − ∑ₓ p x · H(W(·∣x))`)
+
+Three findings worth review:
+
+1. **S8 is an equality, not an inequality.** A code's message-to-output link is
+   `DMC.joint` of an induced `codeChannel`, and change of variables along the
+   encoder identifies the two mutual informations exactly. The data-processing
+   *inequality* is never needed here.
+2. **Fano needs no case split on `|M| = 1`.** Stating Gibbs for a sub-probability
+   weight rather than a `PMF` absorbs the degenerate case: the reference weight
+   has mass `1` when `|M| ≥ 2` and `1/2` when `|M| = 1`, and the bound is
+   indifferent to which.
+3. **`DMC.joint` is now an explicit mass function** (`PMF.ofFintype`) rather than
+   a `bind`, matching `DMC.power`, so `DMC.joint_apply` holds by `rfl`. Same
+   measure — purely proof engineering, but it is what makes the entropy
+   computations calculational rather than monadic.
 
 ### The connecting arguments (no `sorry`)
 

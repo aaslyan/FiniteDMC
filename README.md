@@ -11,13 +11,14 @@ repository unless a separate, later decision says otherwise.
 
 ## Status
 
-`lake build` succeeds. **5** named, precisely typed `sorry`s remain; both
+`lake build` succeeds. **2** named, precisely typed `sorry`s remain; both
 top-level theorems are fully proved *from* them, and the connecting arguments are
 real proofs.
 
-The six self-contained obligations have been discharged. What remains is Fano's
-inequality, the data-processing inequality, single-letterisation, the
-boundedness of capacity, and random-coding achievability.
+Nine of the original eleven obligations are discharged, including Fano's
+inequality, the data-processing step and the boundedness of capacity. What
+remains is single-letterisation (`I(Xⁿ;Yⁿ) ≤ n·C`) and random-coding
+achievability.
 
 **No convention is settled.** See [`GOAL.md`](GOAL.md) for the statements, the
 draft convention choices, and the `sorry` list; and
@@ -29,6 +30,7 @@ before they are attempted.
 | file | contents |
 |------|----------|
 | `FiniteDMC/Entropy.lean` | Shannon entropy, conditional entropy, mutual information on a `Fintype` (Mathlib has none of these) |
+| `FiniteDMC/EntropyBounds.lean` | non-negativity, Gibbs' inequality, the maximum-entropy bound |
 | `FiniteDMC/Channel.lean` | `DMC`, the memoryless `n`-fold extension, mutual information across a channel, capacity as a supremum |
 | `FiniteDMC/Code.lean` | `BlockCode`, rate, conditional and average error, the induced joint laws |
 | `FiniteDMC/Achievability.lean` | the direct theorem |

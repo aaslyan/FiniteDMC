@@ -15,14 +15,18 @@ capacity of a finite discrete memoryless channel and the weak converse.  Mathlib
 but no Shannon entropy or mutual information for distributions on a `Fintype`, so we define them
 here.
 
-Nothing beyond the definitions and one identity that holds by `ring` is developed: every genuine
-property of entropy is deferred to a named `sorry` at the point where a proof actually demands it.
+This file holds the definitions themselves together with the small `PMF` utilities they need on a
+`Fintype`.  Genuine *bounds* on entropy live in `FiniteDMC.EntropyBounds`; the split keeps this
+file reviewable as the definitional layer, where a wrong choice is expensive.
 
 ## Main definitions
 
 * `FiniteDMC.entropy p` : the Shannon entropy `H(p)`, in bits, of `p : PMF α` with `α` a `Fintype`.
 * `FiniteDMC.condEntropy μ` : the conditional entropy `H(A ∣ B)` of a joint law `μ : PMF (α × β)`.
 * `FiniteDMC.mutualInfo μ` : the mutual information `I(A ; B)` of a joint law `μ : PMF (α × β)`.
+
+Supporting `PMF` facts on a `Fintype`: `sum_coe_eq_one`, `sum_toReal_eq_one`, `nonempty_of_pmf`,
+`map_apply_fintype`, `sum_map_toReal_mul`, `map_snd_apply`, `le_map_snd`.
 
 ## Implementation notes
 
@@ -85,6 +89,23 @@ theorem sum_map_toReal_mul [Fintype α] [Fintype β] (p : PMF α) (f : α → β
   · intro b _ hb
     simp [hb]
   · simp
+
+/-- The second marginal, evaluated as a sum. -/
+theorem map_snd_apply [Fintype α] [Fintype β] (μ : PMF (α × β)) (b : β) :
+    (μ.map Prod.snd) b = ∑ a, μ (a, b) := by
+  classical
+  rw [map_apply_fintype, Fintype.sum_prod_type]
+  refine Finset.sum_congr rfl fun a _ ↦ ?_
+  rw [Finset.sum_eq_single b]
+  · simp
+  · intro c _ hc; simp [Ne.symm hc]
+  · simp
+
+/-- A joint mass is dominated by its second marginal. -/
+theorem le_map_snd [Fintype α] [Fintype β] (μ : PMF (α × β)) (a : α) (b : β) :
+    μ (a, b) ≤ (μ.map Prod.snd) b := by
+  rw [map_snd_apply]
+  exact Finset.single_le_sum (f := fun i ↦ μ (i, b)) (fun i _ ↦ _root_.zero_le) (Finset.mem_univ a)
 
 /-- The Shannon entropy `H(p) = -∑ a, p a * log₂ (p a)` of a distribution on a finite type,
 measured in bits. -/

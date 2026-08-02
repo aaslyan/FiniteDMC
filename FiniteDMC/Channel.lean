@@ -21,6 +21,14 @@ alphabet `Y` is a stochastic matrix, i.e. a map `X → PMF Y`.
 * `FiniteDMC.DMC.mutualInfo W p` : `I(p ; W)`, the mutual information across `W` at input law `p`.
 * `FiniteDMC.DMC.capacity W` : `C = sup_p I(p ; W)`, in bits per channel use.
 
+## Main statements
+
+* `FiniteDMC.DMC.entropy_joint` : the chain rule `H(X, Y) = H(X) + ∑ₓ p x · H(W(· ∣ x))`.
+* `FiniteDMC.DMC.mutualInfo_eq` : the normal form `I(p ; W) = H(Y) - ∑ₓ p x · H(W(· ∣ x))`, which
+  is what makes the capacity bound and the data-processing step routine.
+* `FiniteDMC.bddAbove_range_mutualInfo` : capacity is a supremum of a bounded set, so it is not
+  the junk value `0`.
+
 ## Implementation notes
 
 * **Blocks are `Fin n → X`, not `Vector X n`.**  `Fin n → X` is automatically a `Fintype`, the

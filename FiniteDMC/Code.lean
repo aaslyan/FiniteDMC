@@ -38,6 +38,7 @@ deterministic decoder.
 namespace FiniteDMC
 
 open Finset
+open scoped ENNReal
 
 variable {X Y : Type*} [Fintype X] [Fintype Y] {n : ℕ}
 
@@ -91,6 +92,13 @@ theorem codeChannel_transition (m : Fin c.card) :
 /-- The joint law of the transmitted message and the received block, the message being uniform. -/
 noncomputable def msgOutJoint : PMF (Fin c.card × (Fin n → Y)) :=
   (c.codeChannel W).joint c.messageDist
+
+/-- The joint law of message and output block, evaluated. -/
+theorem msgOutJoint_apply (m : Fin c.card) (y : Fin n → Y) :
+    (c.msgOutJoint W) (m, y)
+      = (c.card : ℝ≥0∞)⁻¹ * (W.power n).transition (c.encode m) y := by
+  haveI := c.nonempty_fin
+  simp [BlockCode.msgOutJoint, BlockCode.messageDist, PMF.uniformOfFintype_apply]
 
 /-- The joint law of the transmitted input block and the received block, the message being
 uniform. -/

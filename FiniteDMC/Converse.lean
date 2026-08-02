@@ -12,9 +12,8 @@ import Mathlib.Analysis.SpecificLimits.Basic
 If a sequence of block codes for a finite DMC `W` has rate at least `R` and average error
 probability tending to `0`, then `R ≤ C`.
 
-The top-level argument here is complete: `weak_converse` is proved outright from six named facts,
-each a standard piece of information theory stated at exactly the type the argument needs, and
-each left as a `sorry` for now.
+The converse chain is complete except for single-letterisation: Fano's inequality and the
+data-processing step are proved here, and `DMC.mutualInfo_power_le` is the one remaining `sorry`.
 
 ## Main statements
 
@@ -23,6 +22,7 @@ each left as a `sorry` for now.
 * `FiniteDMC.BlockCode.rate_mul_one_sub_avgError_le` : the same bound in rate form,
   `rate * (1 - Pe) ≤ C + 1 / n`, which is what both asymptotic statements consume.
 * `FiniteDMC.weak_converse` : the weak converse in `R`-form.
+* `FiniteDMC.BlockCode.fano_inequality` : Fano's inequality for a block code.
 * `FiniteDMC.weak_converse_limsup` : the weak converse in `limsup`-form.
 
 ## Implementation notes
@@ -37,10 +37,12 @@ than it looks: it would be satisfied vacuously by a code sequence with unbounded
 namespace FiniteDMC
 
 open Filter Topology
+open scoped ENNReal
 
 variable {X Y : Type*} [Fintype X] [Fintype Y] {n : ℕ}
 
 /-! ### Facts consumed by the converse -/
+
 
 /-- Each conditional error probability is at most `1`, being a partial sum of the output law. -/
 theorem BlockCode.condError_le_one (c : BlockCode X Y n) (W : DMC X Y) (m : Fin c.card) :
@@ -98,13 +100,151 @@ theorem BlockCode.msgOutJoint_map_fst (c : BlockCode X Y n) (W : DMC X Y) :
     (c.msgOutJoint W).map Prod.fst = c.messageDist :=
   DMC.joint_map_fst _ _
 
+/-- The total mass the joint law puts on decoding errors is exactly the average error
+probability. -/
+theorem BlockCode.sum_error_mass (c : BlockCode X Y n) (W : DMC X Y) :
+    ∑ z : Fin c.card × (Fin n → Y),
+      (if z.1 = c.decode z.2 then 0 else ((c.msgOutJoint W) z).toReal) = c.avgError W := by
+  rw [Fintype.sum_prod_type, BlockCode.avgError, Finset.mul_sum]
+  refine Finset.sum_congr rfl fun m _ ↦ ?_
+  rw [BlockCode.condError, Finset.mul_sum]
+  refine Finset.sum_congr rfl fun y _ ↦ ?_
+  rw [c.msgOutJoint_apply W, ENNReal.toReal_mul, ENNReal.toReal_inv, ENNReal.toReal_natCast]
+  by_cases h : c.decode y = m
+  · simp [h]
+  · simp [h, Ne.symm h]
+
 /-- **Fano's inequality**, specialised to a block code: the residual uncertainty about the message
 given the channel output is controlled by the average error probability.
 
 The `1` on the right is the usual crude bound `h₂(Pe) ≤ 1` for the binary entropy of `Pe`. -/
+
+
 theorem BlockCode.fano_inequality (c : BlockCode X Y n) (W : DMC X Y) :
     condEntropy (c.msgOutJoint W) ≤ 1 + c.avgError W * Real.logb 2 c.card := by
-  sorry
+  classical
+  have hK1 : (1 : ℝ) ≤ (c.card : ℝ) := by exact_mod_cast c.card_pos
+  set μ := c.msgOutJoint W with hμdef
+  set ν := μ.map Prod.snd with hνdef
+  set b : ℝ := 1 / (2 * ((c.card : ℝ) - 1)) with hbdef
+  set r : Fin c.card × (Fin n → Y) → ℝ :=
+    fun z ↦ if z.1 = c.decode z.2 then 1 / 2 else b with hrdef
+  -- A decoding error is only possible when there are at least two messages.
+  have htwo : ∀ m : Fin c.card, ∀ y : Fin n → Y, m ≠ c.decode y → (2 : ℝ) ≤ (c.card : ℝ) := by
+    intro m y hz
+    haveI : Nontrivial (Fin c.card) := ⟨⟨m, c.decode y, hz⟩⟩
+    have h : 1 < c.card := by
+      rw [← Fintype.card_fin c.card]
+      exact Fintype.one_lt_card_iff_nontrivial.mpr ‹_›
+    exact_mod_cast h
+  have hrpos : ∀ z : Fin c.card × (Fin n → Y), 0 < r z := by
+    rintro ⟨m, y⟩
+    rw [hrdef]
+    by_cases h : m = c.decode y
+    · simp [h]
+    · have h2 := htwo m y h
+      have hpos : (0 : ℝ) < 2 * ((c.card : ℝ) - 1) := by linarith
+      simp only [h, if_false]
+      exact div_pos one_pos hpos
+  have hμle : ∀ z : Fin c.card × (Fin n → Y), μ z ≤ ν z.2 := by
+    rintro ⟨m, y⟩; exact le_map_snd μ m y
+  -- The reference weight.
+  have hwnonneg : ∀ z, 0 ≤ (ν z.2).toReal * r z := fun z ↦
+    mul_nonneg ENNReal.toReal_nonneg (hrpos z).le
+  have hrsum : ∀ y : Fin n → Y, ∑ m : Fin c.card, r (m, y) ≤ 1 := by
+    intro y
+    have hsplit : ∑ m : Fin c.card, r (m, y) = ((c.card : ℝ) - 1) * b + 1 / 2 := by
+      have hpt : ∀ m : Fin c.card, r (m, y) = b + (if m = c.decode y then 1 / 2 - b else 0) := by
+        intro m; rw [hrdef]; by_cases h : m = c.decode y <;> simp [h]
+      rw [Finset.sum_congr rfl fun m _ ↦ hpt m, Finset.sum_add_distrib, Finset.sum_const,
+        Finset.card_univ, Fintype.card_fin, nsmul_eq_mul,
+        Finset.sum_ite_eq' Finset.univ (c.decode y) fun _ ↦ (1 : ℝ) / 2 - b]
+      simp
+      ring
+    rw [hsplit]
+    rcases eq_or_lt_of_le hK1 with h | h
+    · rw [← h]; norm_num
+    · have hc : (0 : ℝ) < (c.card : ℝ) - 1 := by linarith
+      have : ((c.card : ℝ) - 1) * b = 1 / 2 := by rw [hbdef]; field_simp
+      rw [this]; norm_num
+  have hsumw : ∑ z : Fin c.card × (Fin n → Y), (ν z.2).toReal * r z ≤ 1 := by
+    rw [Fintype.sum_prod_type, Finset.sum_comm]
+    calc ∑ y : Fin n → Y, ∑ m : Fin c.card, (ν y).toReal * r (m, y)
+        = ∑ y : Fin n → Y, (ν y).toReal * ∑ m : Fin c.card, r (m, y) := by
+          exact Finset.sum_congr rfl fun y _ ↦ (Finset.mul_sum _ _ _).symm
+      _ ≤ ∑ y : Fin n → Y, (ν y).toReal * 1 :=
+          Finset.sum_le_sum fun y _ ↦
+            mul_le_mul_of_nonneg_left (hrsum y) ENNReal.toReal_nonneg
+      _ = 1 := by simp [sum_toReal_eq_one]
+  have hac : ∀ z, (ν z.2).toReal * r z = 0 → μ z = 0 := by
+    intro z hz
+    have hν0 : (ν z.2).toReal = 0 := by
+      rcases mul_eq_zero.1 hz with h | h
+      · exact h
+      · exact absurd h (ne_of_gt (hrpos z))
+    have : ν z.2 = 0 := by
+      rwa [ENNReal.toReal_eq_zero_iff, or_iff_left (ν.apply_ne_top _)] at hν0
+    exact le_antisymm (this ▸ hμle z) _root_.zero_le
+  -- Gibbs against that weight.
+  have hgibbs := entropy_le_neg_sum_mul_logb μ (fun z ↦ (ν z.2).toReal * r z) hwnonneg hsumw hac
+  have hsplitlog : ∀ z : Fin c.card × (Fin n → Y),
+      (μ z).toReal * Real.logb 2 ((ν z.2).toReal * r z)
+      = (μ z).toReal * Real.logb 2 (ν z.2).toReal + (μ z).toReal * Real.logb 2 (r z) := by
+    intro z
+    rcases eq_or_lt_of_le (ENNReal.toReal_nonneg : (0 : ℝ) ≤ (μ z).toReal) with hz | hz
+    · rw [← hz]; ring
+    · have hμne : μ z ≠ 0 := by intro h; rw [h] at hz; simp at hz
+      have hνne : ν z.2 ≠ 0 := fun h ↦ hμne (le_antisymm (h ▸ hμle z) _root_.zero_le)
+      have hν0 : (0 : ℝ) < (ν z.2).toReal := ENNReal.toReal_pos hνne (ν.apply_ne_top _)
+      rw [Real.logb, Real.logb, Real.logb, Real.log_mul (ne_of_gt hν0) (ne_of_gt (hrpos z))]
+      ring
+  have hpart1 : ∑ z : Fin c.card × (Fin n → Y), (μ z).toReal * Real.logb 2 (ν z.2).toReal
+      = -entropy ν := by
+    rw [Fintype.sum_prod_type, Finset.sum_comm, entropy, neg_neg]
+    refine Finset.sum_congr rfl fun y _ ↦ ?_
+    dsimp only
+    rw [← Finset.sum_mul]
+    congr 1
+    rw [hνdef, map_snd_apply, ENNReal.toReal_sum]
+    intro a _
+    exact μ.apply_ne_top _
+  have hterm : ∀ z : Fin c.card × (Fin n → Y),
+      -((μ z).toReal * Real.logb 2 (r z))
+      = (μ z).toReal + Real.logb 2 ((c.card : ℝ) - 1)
+          * (if z.1 = c.decode z.2 then 0 else (μ z).toReal) := by
+    rintro ⟨m, y⟩
+    dsimp only
+    have hl2 : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos one_lt_two)
+    by_cases h : m = c.decode y
+    · have hr : r (m, y) = 1 / 2 := by rw [hrdef]; simp [h]
+      have hlog : Real.logb 2 ((1 : ℝ) / 2) = -1 := by
+        rw [show (1 : ℝ) / 2 = (2 : ℝ)⁻¹ by norm_num, Real.logb, Real.log_inv]
+        field_simp
+      rw [hr, hlog, if_pos h]
+      ring
+    · have h2 := htwo m y h
+      have hc : (0 : ℝ) < (c.card : ℝ) - 1 := by linarith
+      have hr : r (m, y) = 1 / (2 * ((c.card : ℝ) - 1)) := by rw [hrdef]; simp [h, hbdef]
+      have hlog : Real.logb 2 (1 / (2 * ((c.card : ℝ) - 1)))
+          = -(1 + Real.logb 2 ((c.card : ℝ) - 1)) := by
+        rw [one_div, Real.logb_inv, Real.logb, Real.log_mul (by norm_num) (ne_of_gt hc),
+          Real.logb]
+        field_simp
+      rw [hr, hlog, if_neg h]
+      ring
+  have hpart2 : -∑ z : Fin c.card × (Fin n → Y), (μ z).toReal * Real.logb 2 (r z)
+      = 1 + c.avgError W * Real.logb 2 ((c.card : ℝ) - 1) := by
+    rw [← Finset.sum_neg_distrib, Finset.sum_congr rfl fun z _ ↦ hterm z,
+      Finset.sum_add_distrib, sum_toReal_eq_one, ← Finset.mul_sum, c.sum_error_mass W]
+    ring
+  have hmono : Real.logb 2 ((c.card : ℝ) - 1) ≤ Real.logb 2 (c.card : ℝ) := by
+    rcases eq_or_lt_of_le hK1 with h | h
+    · rw [← h]; norm_num
+    · exact Real.logb_le_logb_of_le one_lt_two (by linarith) (by linarith)
+  have hPe := c.avgError_nonneg W
+  rw [Finset.sum_congr rfl fun z _ ↦ hsplitlog z, Finset.sum_add_distrib, hpart1] at hgibbs
+  rw [condEntropy, ← hνdef]
+  nlinarith [mul_le_mul_of_nonneg_left hmono hPe, hpart2]
 
 /-- **Data processing inequality** for the Markov chain `M → Xⁿ → Yⁿ` induced by a block code:
 the encoder cannot increase the information the output carries about the message. -/
