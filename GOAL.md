@@ -10,8 +10,9 @@ particular).
   finite alphabets, average block-error probability, achievability strictly
   below capacity, weak converse above it. Not general/continuous channels, not
   Shannon–Hartley, not zero-error capacity, not the strong converse.
-- **State:** `lake build` succeeds. **1** `sorry` remains: random-coding
-  achievability (S10). Ten of the original eleven are proved.
+- **State:** `lake build` succeeds. **2** `sorry`s remain, both inside what was
+  S10; S10 itself has been decomposed and its assembly proved. Ten of the
+  original eleven obligations are closed.
 - **The weak converse is now an actual theorem** — `#print axioms` shows only
   `propext`, `Classical.choice`, `Quot.sound`, with no `sorryAx`. Both its
   `R`-form and its `limsup`-form, and the one-shot Fano bound, are unconditional.
@@ -107,7 +108,8 @@ D-10 as a correction). These are the ones to reject first if you disagree.
 
 ## 3. The `sorry` list
 
-**1 open, 10 discharged.** Classification uses the brief's categories. Note which
+**2 open (both inside the old S10), 10 discharged.** Classification uses the
+brief's categories. Note which
 categories came out **empty** — that is itself a result:
 
 - **Definition:** none. Every definition is concrete, so no `sorry` can hide a
@@ -120,13 +122,20 @@ categories came out **empty** — that is itself a result:
 
 ### Still open
 
-| id | name | class | type | forced by |
-|----|------|-------|------|-----------|
-| **S10** | `exists_blockCode_of_lt_mutualInfo` | Theorem | `R < W.mutualInfo p → 0 < ε → ∀ᶠ n in atTop, ∃ c : BlockCode X Y n, (2:ℝ) ^ ((n:ℝ) * R) ≤ (c.card : ℝ) ∧ c.avgError W ≤ ε` | `coding_achievability` |
+S10 has been split along the **information-density threshold decoding** route
+(see [`HARD-PARTS.md`](HARD-PARTS.md)); the split is forced, in the sense that
+`exists_blockCode_of_lt_mutualInfo` is now *proved* from exactly these two.
 
-It is the only thing standing between the repository and a complete proof of the
-coding theorem. See [`HARD-PARTS.md`](HARD-PARTS.md); it needs a decision about
-which achievability argument to formalise before it is attempted.
+| id | name | class | type |
+|----|------|-------|------|
+| **S10a** | `exists_blockCode_avgError_le` | Theorem | `0 < M → ∀ τ, ∃ c : BlockCode X Y n, c.card = M ∧ c.avgError W ≤ W.spectrumTail p n τ + M * (2:ℝ) ^ (-τ)` |
+| **S10b** | `tendsto_spectrumTail` | Theorem | `0 < δ → Tendsto (fun n ↦ W.spectrumTail p n ((n:ℝ) * (W.mutualInfo p - δ))) atTop (𝓝 0)` |
+
+**S10a is the random-coding argument itself** — the i.i.d. ensemble, threshold
+decoding, the union bound, and the pigeonhole. It is where the route choice
+lives. **S10b is the weak law of large numbers** for the `n`-letter information
+density; it is route-independent and is the piece that needs either a bespoke
+finite-alphabet Chebyshev bound or a bridge to Mathlib's measure-theoretic law.
 
 ### Discharged
 
@@ -141,6 +150,7 @@ which achievability argument to formalise before it is attempted.
 | **S7** | `BlockCode.fano_inequality` | Gibbs against an explicit reference weight |
 | **S8** | `BlockCode.mutualInfo_msgOutJoint_le` | turned out to be an **equality** |
 | **S9** | `DMC.mutualInfo_power_le` | single-letterisation; ~200 lines, no new ideas |
+| **S10** | `exists_blockCode_of_lt_mutualInfo` | *assembly only* — proved from S10a and S10b, including the ceiling bookkeeping and the degenerate `R ≤ 0` case |
 | **S11** | `weak_converse_limsup` | needed `IsCoboundedUnder`, hence `rate_nonneg` |
 
 ### The entropy toolkit that came out of it
@@ -177,6 +187,21 @@ Three findings worth review:
    a `bind`, matching `DMC.power`, so `DMC.joint_apply` holds by `rfl`. Same
    measure — purely proof engineering, but it is what makes the entropy
    computations calculational rather than monadic.
+
+### The random-coding layer
+
+`FiniteDMC/RandomCoding.lean` adds three proved pieces that no route can avoid:
+
+- `PMF.pi` — the product of a finite family of `PMF`s. Mathlib has none; this is
+  needed for the i.i.d. input law and the codebook ensemble, and is plausibly
+  upstreamable.
+- `exists_le_of_sum_toReal_mul_le` — *some realisation is at least as good as the
+  average*. This is precisely the step that makes random coding
+  non-constructive, and it is now isolated and proved (D-12).
+- `DMC.sum_joint_infoDensity` — the mean of the information density **is** the
+  mutual information. This is the bridge between D-5's inclusion–exclusion
+  definition and the quantity the achievability argument concentrates; without
+  it the chosen route would not connect to the rest of the development.
 
 ### The connecting arguments (no `sorry`)
 

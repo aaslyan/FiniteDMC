@@ -7,6 +7,7 @@ import FiniteDMC.Entropy
 import FiniteDMC.EntropyBounds
 import FiniteDMC.Channel
 import FiniteDMC.Code
+import FiniteDMC.RandomCoding
 import FiniteDMC.Achievability
 import FiniteDMC.Converse
 import FiniteDMC.Sanity

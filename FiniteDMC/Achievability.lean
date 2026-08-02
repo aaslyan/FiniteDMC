@@ -3,7 +3,7 @@ Copyright (c) 2026 Ara Aslyan. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ara Aslyan
 -/
-import FiniteDMC.Code
+import FiniteDMC.RandomCoding
 import Mathlib.Order.Filter.AtTopBot.Basic
 
 /-!
@@ -33,7 +33,7 @@ least `R` and average error at most `ε` exist for all sufficiently large block 
 
 namespace FiniteDMC
 
-open Filter
+open Filter Topology
 
 variable {X Y : Type*} [Fintype X] [Fintype Y] {n : ℕ} {R : ℝ}
 
@@ -61,7 +61,61 @@ theorem exists_blockCode_of_lt_mutualInfo (W : DMC X Y) (p : PMF X) {ε : ℝ}
     (hR : R < W.mutualInfo p) (hε : 0 < ε) :
     ∀ᶠ n : ℕ in atTop, ∃ c : BlockCode X Y n,
       (2 : ℝ) ^ ((n : ℝ) * R) ≤ c.card ∧ c.avgError W ≤ ε := by
-  sorry
+  classical
+  haveI : Nonempty X := nonempty_of_pmf p
+  rcases le_or_gt R 0 with hR0 | hR0
+  · -- A single-message code already has rate at least `R` and no error at all.
+    filter_upwards with n
+    set c₁ : BlockCode X Y n :=
+      ⟨1, one_pos, fun _ _ ↦ Classical.arbitrary X, fun _ ↦ ⟨0, one_pos⟩⟩ with hc₁
+    have hz : ∀ m : Fin c₁.card, c₁.condError W m = 0 := by
+      intro m
+      rw [BlockCode.condError]
+      exact Finset.sum_eq_zero fun y _ ↦ if_pos (Subsingleton.elim _ _)
+    refine ⟨c₁, ?_, ?_⟩
+    · have hc : (c₁.card : ℝ) = 1 := by simp [hc₁]
+      rw [hc]
+      exact Real.rpow_le_one_of_one_le_of_nonpos (by norm_num)
+        (mul_nonpos_of_nonneg_of_nonpos (Nat.cast_nonneg n) hR0)
+    · rw [BlockCode.avgError, Finset.sum_congr rfl fun m _ ↦ hz m]
+      simpa using hε.le
+  · set I := W.mutualInfo p with hI
+    set δ := (I - R) / 2 with hδdef
+    have hδ : 0 < δ := by rw [hδdef]; linarith
+    have hIδ : 0 < I - δ := by rw [hδdef]; linarith
+    have hRIδ : R - (I - δ) = -δ := by rw [hδdef]; ring
+    have hpos : ∀ n : ℕ, (0 : ℝ) < (2 : ℝ) ^ ((n : ℝ) * R) :=
+      fun n ↦ Real.rpow_pos_of_pos (by norm_num) _
+    have hmaj : Tendsto (fun n : ℕ ↦ (2 : ℝ) ^ (-((n : ℝ) * δ))
+        + (2 : ℝ) ^ (-((n : ℝ) * (I - δ)))) atTop (𝓝 0) := by
+      simpa using (tendsto_rpow_neg_mul_atTop hδ).add (tendsto_rpow_neg_mul_atTop hIδ)
+    have hbound : ∀ n : ℕ, (⌈(2 : ℝ) ^ ((n : ℝ) * R)⌉₊ : ℝ)
+        * (2 : ℝ) ^ (-((n : ℝ) * (I - δ)))
+        ≤ (2 : ℝ) ^ (-((n : ℝ) * δ)) + (2 : ℝ) ^ (-((n : ℝ) * (I - δ))) := by
+      intro n
+      have hceil : (⌈(2 : ℝ) ^ ((n : ℝ) * R)⌉₊ : ℝ) ≤ (2 : ℝ) ^ ((n : ℝ) * R) + 1 :=
+        le_of_lt (Nat.ceil_lt_add_one (hpos n).le)
+      have hexp : (0 : ℝ) < (2 : ℝ) ^ (-((n : ℝ) * (I - δ))) :=
+        Real.rpow_pos_of_pos (by norm_num) _
+      calc (⌈(2 : ℝ) ^ ((n : ℝ) * R)⌉₊ : ℝ) * (2 : ℝ) ^ (-((n : ℝ) * (I - δ)))
+          ≤ ((2 : ℝ) ^ ((n : ℝ) * R) + 1) * (2 : ℝ) ^ (-((n : ℝ) * (I - δ))) :=
+            mul_le_mul_of_nonneg_right hceil hexp.le
+        _ = (2 : ℝ) ^ (-((n : ℝ) * δ)) + (2 : ℝ) ^ (-((n : ℝ) * (I - δ))) := by
+            rw [add_mul, one_mul, ← Real.rpow_add (by norm_num)]
+            congr 2
+            rw [hδdef]; ring
+    have h2 : Tendsto (fun n : ℕ ↦ (⌈(2 : ℝ) ^ ((n : ℝ) * R)⌉₊ : ℝ)
+        * (2 : ℝ) ^ (-((n : ℝ) * (I - δ)))) atTop (𝓝 0) :=
+      squeeze_zero (fun n ↦ by positivity) hbound hmaj
+    have hsum : Tendsto (fun n : ℕ ↦ W.spectrumTail p n ((n : ℝ) * (I - δ))
+        + (⌈(2 : ℝ) ^ ((n : ℝ) * R)⌉₊ : ℝ) * (2 : ℝ) ^ (-((n : ℝ) * (I - δ)))) atTop (𝓝 0) := by
+      simpa using (tendsto_spectrumTail W p hδ).add h2
+    filter_upwards [hsum.eventually (gt_mem_nhds hε)] with n hn
+    obtain ⟨c, hcard, herr⟩ := exists_blockCode_avgError_le W p n
+      (M := ⌈(2 : ℝ) ^ ((n : ℝ) * R)⌉₊) (Nat.ceil_pos.2 (hpos n)) ((n : ℝ) * (I - δ))
+    refine ⟨c, ?_, ?_⟩
+    · rw [hcard]; exact Nat.le_ceil _
+    · linarith
 
 /-! ### The direct theorem -/
 
