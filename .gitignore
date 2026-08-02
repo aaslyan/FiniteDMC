@@ -1,4 +1,5 @@
 /.lake
+.DS_Store
 
 # LaTeX build artifacts
 paper/*.aux
