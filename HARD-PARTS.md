@@ -125,6 +125,12 @@ Two facts about the current Mathlib, both checked:
    Variance is automatically finite on a finite alphabet, so this is elementary
    — but it *is* a self-contained probability development that has to be written.
 
+   > **Resolved.** The bespoke route was taken and it worked, in well under a
+   > hundred lines: distinct coordinates of a product law decouple straight out
+   > of `Fintype.prod_sum`, the variance of an i.i.d. sum follows by expanding
+   > the square, and Chebyshev finishes it. **D-11 survives** — nothing in the
+   > development touches `PMF.toMeasure`.
+
 **This is the real question for S10, and it is a formalization question, not an
 information-theory one.**
 
@@ -179,11 +185,13 @@ violate accidentally while writing the proof of exactly this lemma.
 ## Questions to take into the discussion
 
 1. **S10 route** — joint typicality, Feinstein, or information-density
-   threshold? This is the highest-value decision remaining.
-2. **The LLN bridge** — accept measure theory for the concentration step only,
-   or write a bespoke finite-alphabet weak law and keep D-11 intact?
-3. **`PMF.pi`** — build it properly once, given three call sites are already
-   visible? Plausibly upstreamable to Mathlib.
+   threshold? Still the highest-value decision, and now the *only* one: the
+   information-density route has been taken provisionally, and only
+   `exists_blockCode_avgError_le` depends on that choice. Everything else built
+   for it — `PMF.pi`, the pigeonhole, the information density and its mean, the
+   spectrum tail and its weak law — is route-independent.
+2. ~~**The LLN bridge**~~ — resolved; see above. Bespoke Chebyshev, D-11 intact.
+3. **`PMF.pi`** — now built. Worth upstreaming to Mathlib?
 4. **S9 sequencing** — confirm that T1–T4 are built once as a shared entropy
    toolkit serving S2, S7, S8 and S9, rather than per-obligation.
 5. **T2 / D-5** — confirm that routing conditional entropy through `Prod.swap`

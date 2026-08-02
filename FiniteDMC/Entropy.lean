@@ -70,6 +70,45 @@ theorem map_apply_fintype [Fintype α] [DecidableEq β] (f : α → β) (p : PMF
   rw [PMF.map_apply, tsum_fintype]
   exact Finset.sum_congr rfl fun a _ ↦ by convert rfl
 
+/-- Summing a product weight against a product of per-coordinate factors factorises. -/
+theorem sum_prod_mul_prod {R : Type*} [CommSemiring R] [Fintype β] {n : ℕ}
+    (t h : Fin n → β → R) :
+    ∑ y : Fin n → β, ∏ k, (t k (y k) * h k (y k)) = ∏ k, ∑ a, t k a * h k a :=
+  (Fintype.prod_sum fun k a ↦ t k a * h k a).symm
+
+/-- Two distinct coordinates decouple: the expectation of a product of functions of two different
+coordinates is the product of the expectations. -/
+theorem sum_prod_mul_two {R : Type*} [CommSemiring R] [Fintype β] {n : ℕ}
+    (t : Fin n → β → R)
+    (ht : ∀ k, ∑ a, t k a = 1) {i j : Fin n} (hij : i ≠ j) (g h : β → R) :
+    ∑ y : Fin n → β, (∏ k, t k (y k)) * (g (y i) * h (y j))
+      = (∑ a, t i a * g a) * (∑ a, t j a * h a) := by
+  classical
+  have hpt : ∀ y : Fin n → β, (∏ k, t k (y k)) * (g (y i) * h (y j))
+      = ∏ k, (t k (y k) * ((if k = i then g (y k) else 1) * (if k = j then h (y k) else 1))) := by
+    intro y
+    rw [Finset.prod_mul_distrib, Finset.prod_mul_distrib,
+      Finset.prod_ite_eq' Finset.univ i fun k ↦ g (y k),
+      Finset.prod_ite_eq' Finset.univ j fun k ↦ h (y k)]
+    simp
+  rw [Finset.sum_congr rfl fun y _ ↦ hpt y,
+    sum_prod_mul_prod t fun k a ↦ (if k = i then g a else 1) * (if k = j then h a else 1)]
+  have hi : (∑ a, t i a * ((if i = i then g a else 1) * (if i = j then h a else 1)))
+      = ∑ a, t i a * g a := by simp [hij]
+  have hj : (∑ a, t j a * ((if j = i then g a else 1) * (if j = j then h a else 1)))
+      = ∑ a, t j a * h a := by simp [hij.symm]
+  rw [← Finset.mul_prod_erase Finset.univ _ (Finset.mem_univ i),
+    ← Finset.mul_prod_erase (Finset.univ.erase i) _
+      (Finset.mem_erase.2 ⟨hij.symm, Finset.mem_univ j⟩), hi, hj]
+  have hrest : ∀ k ∈ (Finset.univ.erase i).erase j,
+      (∑ a, t k a * ((if k = i then g a else 1) * (if k = j then h a else 1))) = 1 := by
+    intro k hk
+    have hki : k ≠ i := Finset.ne_of_mem_erase (Finset.mem_of_mem_erase hk)
+    have hkj : k ≠ j := Finset.ne_of_mem_erase hk
+    simp only [if_neg hki, if_neg hkj, mul_one]
+    exact ht k
+  rw [Finset.prod_congr rfl hrest, Finset.prod_const_one, mul_one]
+
 /-- Change of variables against a pushforward law: summing a weight `g` against `p.map f` is the
 same as summing `g ∘ f` against `p`. -/
 theorem sum_map_toReal_mul [Fintype α] [Fintype β] (p : PMF α) (f : α → β)

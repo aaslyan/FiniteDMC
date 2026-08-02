@@ -10,9 +10,8 @@ particular).
   finite alphabets, average block-error probability, achievability strictly
   below capacity, weak converse above it. Not general/continuous channels, not
   Shannon–Hartley, not zero-error capacity, not the strong converse.
-- **State:** `lake build` succeeds. **2** `sorry`s remain, both inside what was
-  S10; S10 itself has been decomposed and its assembly proved. Ten of the
-  original eleven obligations are closed.
+- **State:** `lake build` succeeds. **1** `sorry` remains in the whole
+  repository: `exists_blockCode_avgError_le`, the random-coding bound itself.
 - **The weak converse is now an actual theorem** — `#print axioms` shows only
   `propext`, `Classical.choice`, `Quot.sound`, with no `sorryAx`. Both its
   `R`-form and its `limsup`-form, and the one-shot Fano bound, are unconditional.
@@ -108,8 +107,7 @@ D-10 as a correction). These are the ones to reject first if you disagree.
 
 ## 3. The `sorry` list
 
-**2 open (both inside the old S10), 10 discharged.** Classification uses the
-brief's categories. Note which
+**1 open.** Classification uses the brief's categories. Note which
 categories came out **empty** — that is itself a result:
 
 - **Definition:** none. Every definition is concrete, so no `sorry` can hide a
@@ -122,20 +120,15 @@ categories came out **empty** — that is itself a result:
 
 ### Still open
 
-S10 has been split along the **information-density threshold decoding** route
-(see [`HARD-PARTS.md`](HARD-PARTS.md)); the split is forced, in the sense that
-`exists_blockCode_of_lt_mutualInfo` is now *proved* from exactly these two.
-
 | id | name | class | type |
 |----|------|-------|------|
 | **S10a** | `exists_blockCode_avgError_le` | Theorem | `0 < M → ∀ τ, ∃ c : BlockCode X Y n, c.card = M ∧ c.avgError W ≤ W.spectrumTail p n τ + M * (2:ℝ) ^ (-τ)` |
-| **S10b** | `tendsto_spectrumTail` | Theorem | `0 < δ → Tendsto (fun n ↦ W.spectrumTail p n ((n:ℝ) * (W.mutualInfo p - δ))) atTop (𝓝 0)` |
 
-**S10a is the random-coding argument itself** — the i.i.d. ensemble, threshold
-decoding, the union bound, and the pigeonhole. It is where the route choice
-lives. **S10b is the weak law of large numbers** for the `n`-letter information
-density; it is route-independent and is the piece that needs either a bespoke
-finite-alphabet Chebyshev bound or a bridge to Mathlib's measure-theoretic law.
+This is the random-coding argument itself: the i.i.d. codebook ensemble,
+threshold decoding on the information density, the union bound with its
+change-of-measure step, and the pigeonhole. Every other ingredient it needs
+already exists and is proved — `PMF.pi`, `exists_le_of_sum_toReal_mul_le`,
+`DMC.sum_joint_infoDensity`, and the spectrum machinery.
 
 ### Discharged
 
@@ -150,7 +143,8 @@ finite-alphabet Chebyshev bound or a bridge to Mathlib's measure-theoretic law.
 | **S7** | `BlockCode.fano_inequality` | Gibbs against an explicit reference weight |
 | **S8** | `BlockCode.mutualInfo_msgOutJoint_le` | turned out to be an **equality** |
 | **S9** | `DMC.mutualInfo_power_le` | single-letterisation; ~200 lines, no new ideas |
-| **S10** | `exists_blockCode_of_lt_mutualInfo` | *assembly only* — proved from S10a and S10b, including the ceiling bookkeeping and the degenerate `R ≤ 0` case |
+| **S10** | `exists_blockCode_of_lt_mutualInfo` | *assembly* — proved from S10a and S10b, including the ceiling bookkeeping and the degenerate `R ≤ 0` case |
+| **S10b** | `tendsto_spectrumTail` | the weak law, by a bespoke finite-alphabet Chebyshev bound |
 | **S11** | `weak_converse_limsup` | needed `IsCoboundedUnder`, hence `rate_nonneg` |
 
 ### The entropy toolkit that came out of it
@@ -202,6 +196,23 @@ Three findings worth review:
   mutual information. This is the bridge between D-5's inclusion–exclusion
   definition and the quantity the achievability argument concentrates; without
   it the chosen route would not connect to the rest of the development.
+
+### The weak law, without measure theory
+
+`HARD-PARTS.md` posed this as an open question: get the law of large numbers
+either by bridging to Mathlib's measure-theoretic version, or by writing a
+bespoke finite-alphabet Chebyshev bound and keeping D-11 (no measure theory)
+intact. **The second worked**, and it was not expensive:
+
+- `sum_prod_mul_prod` / `sum_prod_mul_two` — distinct coordinates of a product
+  law decouple. Both fall straight out of `Fintype.prod_sum`; the two-coordinate
+  case needs no erasing argument, only `Finset.prod_ite_eq'`.
+- `sum_prod_sq` — the variance of an i.i.d. sum is `n` times the variance, by
+  expanding the square and splitting diagonal from off-diagonal terms.
+- `spectrumTail_le` — Chebyshev.
+
+So **D-11 survives**: nothing in the development touches `PMF.toMeasure`, and
+the decision to stay with `Finset` sums on finite types held all the way through.
 
 ### The connecting arguments (no `sorry`)
 

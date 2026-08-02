@@ -14,9 +14,10 @@ repository unless a separate, later decision says otherwise.
 `lake build` succeeds. **The weak converse is proved** — unconditionally, with no
 `sorry` anywhere beneath it, in both its `R`-form and its `limsup`-form.
 
-**Two** `sorry`s remain, both inside achievability: the random-coding bound
-itself and the weak law of large numbers it needs. Achievability's assembly —
-including the message-count bookkeeping — is proved from those two.
+**One** `sorry` remains in the whole repository: the random-coding bound itself
+(`exists_blockCode_avgError_le`). Everything it needs is in place, including the
+weak law of large numbers, proved by a bespoke finite-alphabet Chebyshev bound
+rather than by bridging to measure theory.
 
 **No convention is settled.** See [`GOAL.md`](GOAL.md) for the statements, the
 draft convention choices, and the `sorry` list; and
