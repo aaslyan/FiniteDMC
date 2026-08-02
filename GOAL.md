@@ -125,10 +125,21 @@ categories came out **empty** — that is itself a result:
 | **S10a** | `exists_blockCode_avgError_le` | Theorem | `0 < M → ∀ τ, ∃ c : BlockCode X Y n, c.card = M ∧ c.avgError W ≤ W.spectrumTail p n τ + M * (2:ℝ) ^ (-τ)` |
 
 This is the random-coding argument itself: the i.i.d. codebook ensemble,
-threshold decoding on the information density, the union bound with its
-change-of-measure step, and the pigeonhole. Every other ingredient it needs
-already exists and is proved — `PMF.pi`, `exists_le_of_sum_toReal_mul_le`,
-`DMC.sum_joint_infoDensity`, and the spectrum machinery.
+threshold decoding, the union bound, and the pigeonhole. Its ingredients are
+proved — `PMF.pi`, `exists_le_of_sum_toReal_mul_le`, `DMC.sum_joint_infoDensity`,
+the spectrum machinery, and now the change-of-measure step
+`sum_ite_lt_le_rpow_neg`.
+
+**It is blocked on a definitional decision, not on effort.** Setting up the
+decoder exposed a junk-value defect in `DMC.infoDensity`: `Real.logb` sends `0`
+to `0`, so a pair with `W(y ∣ x) = 0` gets information density `0` where the
+theory needs `-∞`. Harmless under the joint law (no mass there), and every
+existing use is under the joint — but the union-bound term sums against a
+*product of marginals*, where it breaks the change-of-measure bound. The proved
+change-of-measure lemma therefore avoids logarithms entirely and thresholds on
+the mass inequality `2 ^ τ * P_Yⁿ(y) < Wⁿ(y ∣ x)`. Reconciling that with
+`spectrumTail`'s log-sum phrasing is the decision to take first; see
+[`HARD-PARTS.md`](HARD-PARTS.md).
 
 ### Discharged
 

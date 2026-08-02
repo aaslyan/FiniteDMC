@@ -107,7 +107,13 @@ theorem exists_le_of_sum_toReal_mul_le (μ : PMF ι) (f : ι → ℝ) {b : ℝ}
 
 variable {X Y : Type*} [Fintype X] [Fintype Y] {R : ℝ}
 
-/-- The information density `i(x ; y) = log₂ (W(y ∣ x) / P_Y(y))`. -/
+/-- The information density `i(x ; y) = log₂ (W(y ∣ x) / P_Y(y))`.
+
+**Caution.**  `Real.logb` sends `0` to the junk value `0`, so when `W(y ∣ x) = 0` and `P_Y(y) > 0`
+this evaluates to `0` where information theory requires `-∞`.  That is harmless *under the joint
+law*, which puts no mass on such pairs, and every use here is under the joint.  It is **not**
+harmless under a product of marginals, which is why `sum_ite_lt_le_rpow_neg` is stated as an
+inequality between masses rather than through this function.  See `HARD-PARTS.md`. -/
 noncomputable def DMC.infoDensity (W : DMC X Y) (p : PMF X) (x : X) (y : Y) : ℝ :=
   Real.logb 2 ((W.transition x y).toReal / ((p.bind W.transition) y).toReal)
 
@@ -294,6 +300,74 @@ theorem spectrumTail_le (W : DMC X Y) (p : PMF X) {δ : ℝ} (hδ : 0 < δ) {n :
           * (W.infoDensity p a.1 a.2 - W.mutualInfo p) ^ 2) / ((n : ℝ) * δ ^ 2) := by
         field_simp
 
+/-- The output law of the block channel under an i.i.d. input. -/
+noncomputable def DMC.outputPow (W : DMC X Y) (p : PMF X) (n : ℕ) : PMF (Fin n → Y) :=
+  (PMF.pi fun _ : Fin n ↦ p).bind (W.power n).transition
+
+/-- The i.i.d. input law and the block transition law recover the block joint. -/
+theorem DMC.jointPow_toReal (W : DMC X Y) (p : PMF X) (n : ℕ)
+    (z : (Fin n → X) × (Fin n → Y)) :
+    (W.jointPow p n z).toReal
+      = ((PMF.pi fun _ : Fin n ↦ p) z.1).toReal
+        * ((W.power n).transition z.1 z.2).toReal := by
+  obtain ⟨x, y⟩ := z
+  rw [DMC.jointPow, DMC.joint_apply, ENNReal.toReal_mul]
+
+/-- **Change of measure.**  Under the *product of the marginals* — an independent codeword paired
+with the received block — the probability that the likelihood ratio exceeds `2 ^ τ` is at most
+`2 ^ (-τ)`.
+
+This is stated as an inequality between masses rather than through the information density, and
+deliberately so: `Real.logb` sends `0` to the junk value `0`, whereas the information density of a
+pair with `W(y ∣ x) = 0` must behave as `-∞` for this bound to hold. -/
+theorem sum_ite_lt_le_rpow_neg (W : DMC X Y) (p : PMF X) (n : ℕ) (τ : ℝ) :
+    ∑ z : (Fin n → X) × (Fin n → Y),
+      (if (2 : ℝ) ^ τ * ((W.outputPow p n) z.2).toReal
+            < ((W.power n).transition z.1 z.2).toReal
+        then ((PMF.pi fun _ : Fin n ↦ p) z.1).toReal * ((W.outputPow p n) z.2).toReal
+        else 0)
+      ≤ (2 : ℝ) ^ (-τ) := by
+  classical
+  have h2 : (0 : ℝ) < (2 : ℝ) ^ τ := Real.rpow_pos_of_pos (by norm_num) _
+  have hjoint : ∑ z : (Fin n → X) × (Fin n → Y),
+      ((PMF.pi fun _ : Fin n ↦ p) z.1).toReal
+        * ((W.power n).transition z.1 z.2).toReal = 1 := by
+    rw [← sum_toReal_eq_one (W.jointPow p n)]
+    exact (Finset.sum_congr rfl fun z _ ↦ W.jointPow_toReal p n z).symm
+  calc ∑ z : (Fin n → X) × (Fin n → Y),
+        (if (2 : ℝ) ^ τ * ((W.outputPow p n) z.2).toReal
+              < ((W.power n).transition z.1 z.2).toReal
+          then ((PMF.pi fun _ : Fin n ↦ p) z.1).toReal * ((W.outputPow p n) z.2).toReal
+          else 0)
+      ≤ ∑ z : (Fin n → X) × (Fin n → Y), (2 : ℝ) ^ (-τ) *
+          (((PMF.pi fun _ : Fin n ↦ p) z.1).toReal
+            * ((W.power n).transition z.1 z.2).toReal) := by
+        refine Finset.sum_le_sum fun z _ ↦ ?_
+        have hp : (0 : ℝ) ≤ ((PMF.pi fun _ : Fin n ↦ p) z.1).toReal := ENNReal.toReal_nonneg
+        split
+        · next hlt =>
+          have hkey : ((W.outputPow p n) z.2).toReal
+              ≤ (2 : ℝ) ^ (-τ) * ((W.power n).transition z.1 z.2).toReal := by
+            rw [Real.rpow_neg (by norm_num), inv_mul_eq_div, le_div_iff₀ h2]
+            nlinarith [hlt]
+          nlinarith [hkey, hp]
+        · have : (0 : ℝ) ≤ (2 : ℝ) ^ (-τ) := (Real.rpow_pos_of_pos (by norm_num) _).le
+          positivity
+    _ = (2 : ℝ) ^ (-τ) * 1 := by rw [← Finset.mul_sum, hjoint]
+    _ = (2 : ℝ) ^ (-τ) := mul_one _
+
+/-- **The random-coding bound.**  For any threshold `τ` there is a code with `M` messages whose
+average error is at most the information-spectrum tail plus the union-bound term.
+
+Its intended proof: draw the codebook from the i.i.d. ensemble `PMF.pi (fun _ ↦ pⁿ)`, decode by
+thresholding the likelihood ratio, bound the ensemble-average error by
+`sum_ite_lt_le_rpow_neg` together with the spectrum tail, and then extract a single good codebook
+with `exists_le_of_sum_toReal_mul_le`.  No usable encoder comes out of that argument (D-12).
+
+Before it is attempted, the mismatch documented on `DMC.infoDensity` must be settled: the
+threshold event has to be the mass inequality `2 ^ τ * P_Yⁿ(y) < Wⁿ(y ∣ x)`, and `spectrumTail`
+is currently phrased via the log-sum information density.  The two agree under the joint law but
+not under a product of marginals. -/
 theorem exists_blockCode_avgError_le (W : DMC X Y) (p : PMF X) (n : ℕ) {M : ℕ} (hM : 0 < M)
     (τ : ℝ) : ∃ c : BlockCode X Y n, c.card = M ∧
       c.avgError W ≤ W.spectrumTail p n τ + M * (2 : ℝ) ^ (-τ) := by

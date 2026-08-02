@@ -173,6 +173,45 @@ one-shot formulation, so it generalises later without rework.
 - The decoder as an actual function `(Fin n → Y) → Fin M`, including a
   decidability instance for the decoding rule and a designated failure output.
 
+### A defect found while setting up the decoder — needs a decision
+
+Formalising the threshold decoder turned up a real problem with the information
+density as currently defined, and it is exactly the class of hazard the original
+brief asked to be flagged rather than silently patched.
+
+`DMC.infoDensity` is `Real.logb 2 (W(y ∣ x) / P_Y(y))`. Lean's `Real.logb` sends
+`0` to the junk value `0`. So when `W(y ∣ x) = 0` and `P_Y(y) > 0`, the
+information density evaluates to **`0`**, where information theory requires
+**`-∞`**. Confirmed in Lean:
+
+```lean
+example (W : DMC Bool Bool) (p : PMF Bool) (x y : Bool)
+    (h : W.transition x y = 0) : W.infoDensity p x y = 0 := by
+  simp [DMC.infoDensity, h]
+```
+
+**Where it is harmless.** Under the *joint* law, which puts no mass on pairs with
+`W(y ∣ x) = 0`. Every existing use — `sum_joint_infoDensity`, `spectrumTail`,
+`tendsto_spectrumTail` — is under the joint, so all of it stands.
+
+**Where it bites.** The union-bound term sums against a *product of marginals*,
+which does charge those pairs. There, a pair with `Wⁿ(y ∣ x) = 0` can be counted
+as exceeding the threshold while contributing positive mass, and the
+change-of-measure bound `P_Yⁿ(y) ≤ 2^(-τ) · Wⁿ(y ∣ x)` fails outright, since its
+right-hand side is `0`.
+
+**What was done.** `sum_ite_lt_le_rpow_neg` is proved, but stated as a mass
+inequality — the event is `2 ^ τ * P_Yⁿ(y) < Wⁿ(y ∣ x)` — with no logarithm
+anywhere. That form is junk-free and is what the decoder should threshold on.
+
+**What is still open.** `spectrumTail` is phrased via the log-sum information
+density, because that is the form the weak law needs. The decoder's event is the
+mass inequality. The two coincide under the joint law but not in general, so
+`exists_blockCode_avgError_le` needs a bridging lemma — or `spectrumTail` should
+be restated in mass form and the weak law's proof rerouted through the bridge.
+**This is a definitional question and should be decided before S10a is attempted**,
+not during it.
+
 ### A statement-level caution
 
 The statement asserts a code *exists*. Its proof will produce no encoder, and
