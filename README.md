@@ -25,9 +25,11 @@ sums over finite types, including the law of large numbers. Mathlib has no
 discrete Shannon entropy, so that layer is built here from `Real.log_le_sub_one_of_pos`
 alone, with no appeal to Jensen or convexity.
 
-**No convention is settled.** [`REVIEW.md`](REVIEW.md) is the short paper for
-the information-theory reviewer: both theorems in ordinary notation, the spine of
-the proof, and the definitional choices that need a decision. Start there.
+**No convention is settled.** The short paper for the information-theory
+reviewer — both theorems in ordinary notation, the spine of the proof, and the
+definitional choices that need a decision — is
+[`paper/review.pdf`](paper/review.pdf) (7 pp., typeset) or
+[`REVIEW.md`](REVIEW.md) (same content, Markdown). Start there.
 
 For the supporting detail: [`GOAL.md`](GOAL.md) records the statements and the
 twelve draft conventions, [`DOSSIER.md`](DOSSIER.md) is the evidence base with

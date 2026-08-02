@@ -1,0 +1,422 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1.05in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=black,urlcolor=teal,citecolor=black]{hyperref}
+
+\definecolor{decision}{RGB}{140,70,10}
+
+\newtheorem*{thmA}{Theorem A (achievability)}
+\newtheorem*{thmB}{Theorem B (weak converse)}
+\newtheorem*{thmBp}{Theorem B$'$ (weak converse, $\limsup$ form)}
+
+\newenvironment{decisionblock}[1]
+  {\medskip\par\noindent\textcolor{decision}{\rule{\textwidth}{0.8pt}}\par\nobreak
+   \smallskip\noindent\textbf{\textcolor{decision}{#1}}\par\nobreak\smallskip}
+  {\par\noindent\textcolor{decision}{\rule{\textwidth}{0.4pt}}\medskip\par}
+
+\newcommand{\X}{\mathcal{X}}
+\newcommand{\Y}{\mathcal{Y}}
+\newcommand{\C}{\mathcal{C}}
+\newcommand{\Pe}{P_{\mathrm{e}}}
+\newcommand{\code}{\mathcal{C}}
+
+\setlist[itemize]{itemsep=2pt,topsep=4pt}
+
+\title{\bfseries The Coding Theorem for Finite\\ Discrete Memoryless Channels\\[4pt]
+       \large A formalization submitted for mathematical review}
+\author{Ara Aslyan}
+\date{2 August 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Both directions of Shannon's channel coding theorem for finite discrete
+memoryless channels --- achievability strictly below capacity, and the weak
+converse --- have been formalized and machine-checked, with no unproved
+obligations anywhere in the development. This note states what is proved in
+ordinary notation, gives the spine of each proof at the level a reviewer needs,
+and asks for a decision on the definitional choices the proof now rests on. It
+is written so that the mathematics can be evaluated without reading any Lean.
+
+The choice most in need of judgement is how mutual information is defined:
+currently by inclusion--exclusion, $I(A;B) = H(A)+H(B)-H(A,B)$, rather than as a
+relative entropy. That choice is already load-bearing under a complete proof, so
+the request in \S3 is a decision with a cost attached, not a preference poll.
+\end{abstract}
+
+\section{What is proved}
+
+\subsection{Setting}
+
+Let $\X$ and $\Y$ be finite alphabets. A \emph{discrete memoryless channel} is a
+stochastic matrix $W = \bigl(W(y\mid x)\bigr)_{x\in\X,\,y\in\Y}$, with $n$-fold
+extension
+\[
+  W^{n}(y\mid x) \;=\; \prod_{i=1}^{n} W(y_i \mid x_i),
+  \qquad x\in\X^{n},\; y\in\Y^{n}.
+\]
+For an input distribution $p$ on $\X$ write $\mu_p(x,y) = p(x)W(y\mid x)$ for the
+joint law and $(pW)(y) = \sum_{x} p(x)W(y\mid x)$ for the output marginal. The
+mutual information $I(p;W)$ is that of $\mu_p$, defined in \S2.1 --- \emph{this is
+the definition under review} --- and
+\[
+  C(W) \;=\; \sup_{p}\, I(p;W).
+\]
+
+A \emph{block code} of length $n$ is a triple $\code = (M,f,g)$ with $M \ge 1$
+messages, a deterministic encoder $f : \{1,\dots,M\}\to\X^{n}$ and a
+deterministic decoder $g : \Y^{n}\to\{1,\dots,M\}$. Messages are uniform, and
+\[
+  R(\code) = \frac{\log_2 M}{n},
+  \qquad
+  \Pe(\code) = \frac1M \sum_{m=1}^{M}
+    \Pr\bigl[\, g(Y^{n}) \neq m \,\big|\, X^{n} = f(m) \,\bigr].
+\]
+
+\subsection{The two theorems}
+
+\begin{thmA}
+Let $\X$ be nonempty, let $R < C(W)$ and let $\varepsilon>0$. Then for all
+sufficiently large $n$ there exists a block code $\code$ of length $n$ with
+\[
+  R \;\le\; R(\code)
+  \qquad\text{and}\qquad
+  \Pe(\code) \;\le\; \varepsilon .
+\]
+\end{thmA}
+
+\begin{thmB}
+Let $(\code_n)_{n\in\mathbb N}$ be block codes, $\code_n$ of length $n$, with
+$R \le R(\code_n)$ for every $n$ and $\Pe(\code_n)\to 0$. Then $R \le C(W)$.
+\end{thmB}
+
+\begin{thmBp}
+If the rates $\bigl(R(\code_n)\bigr)_n$ are bounded above and
+$\Pe(\code_n)\to 0$, then $\limsup_{n} R(\code_n) \le C(W)$.
+\end{thmBp}
+
+Theorem A carries the hypothesis that $\X$ is nonempty; Theorem B does not need
+it. Theorem B$'$ is a separate statement rather than a restatement of B, and its
+boundedness hypothesis is the point --- see \textbf{D-10} in \S3.2.
+
+\subsection{Scope, stated plainly}
+
+The result is exactly this and no more.
+
+\begin{itemize}
+  \item \textbf{Finite} input and output alphabets. Nothing about continuous or
+        countably infinite channels, and nothing about Shannon--Hartley.
+  \item \textbf{Average} error probability over uniform messages. \emph{Not}
+        maximal error --- that would require an expurgation argument, and none is
+        built.
+  \item \textbf{Weak} converse: above capacity the error probability cannot
+        vanish. It is \emph{not} shown that the error tends to $1$; that is the
+        strong converse, and it is out of scope.
+  \item Nothing is claimed at $R = C(W)$. Theorem A is strict below capacity,
+        Theorem B strict above.
+  \item Fixed-length block codes, deterministic encoder and decoder, no feedback.
+        Zero-error capacity does not appear.
+\end{itemize}
+
+\section{The spine of the proof}
+
+\subsection{Entropy and mutual information}
+
+With the convention $0\log_2 0 := 0$,
+\[
+  H(p) = -\sum_{a} p(a)\log_2 p(a),
+  \qquad
+  H(A\mid B) := H(A,B) - H(B),
+\]
+and, for a joint law on $\mathcal A\times\mathcal B$,
+\[
+  \boxed{\;I(A;B) \;:=\; H(A) + H(B) - H(A,B).\;}
+\]
+The boxed definition is \textbf{D-5}, the choice most in need of judgement
+(\S3.1).
+
+Two consequences are used throughout. First, the chain rule
+\[
+  H(A) \;=\; I(A;B) + H(A\mid B)
+\]
+is an \emph{algebraic identity} under this definition --- substitute and cancel
+--- so it holds with no side conditions at all. Second, the entire development
+rests on one analytic input, $\log t \le t-1$, from which Gibbs' inequality, the
+maximum-entropy bound $H(p)\le\log_2|\mathcal A|$ and subadditivity all follow.
+There is no appeal to Jensen's inequality or to convexity anywhere.
+
+\subsection{The converse}
+
+Let $\code$ have $M$ messages and length $n$, with $M$ uniform, $X^{n}=f(M)$ and
+$Y^{n}\sim W^{n}(\cdot\mid X^{n})$. Then
+\[
+\begin{aligned}
+  \log_2 M
+  \;&\overset{(1)}{=}\; H(M)
+  \;\overset{(2)}{=}\; I(M;Y^{n}) + H(M\mid Y^{n})\\[2pt]
+  \;&\overset{(3)}{\le}\; I(X^{n};Y^{n}) + H(M\mid Y^{n})
+  \;\overset{(4)}{\le}\; n\,C(W) + 1 + \Pe\log_2 M .
+\end{aligned}
+\]
+Here (1) is the entropy of the uniform law, (2) is the chain rule and hence an
+identity, (3) is data processing along $M\to X^{n}\to Y^{n}$, and (4) combines
+single-letterization with Fano's inequality. Dividing by $n$ gives the single
+per-block-length inequality that both asymptotic forms consume,
+\[
+  R(\code)\bigl(1-\Pe(\code)\bigr) \;\le\; C(W) + \frac1n ,
+\]
+and letting $n\to\infty$ with $\Pe\to 0$ yields Theorem B.
+
+\paragraph{Step (3) is an equality.}
+The message-to-output link is the joint law of the \emph{composed} channel
+$m \mapsto W^{n}(\cdot\mid f(m))$, and a change of variables along the encoder
+identifies $I(M;Y^{n})$ with $I(X^{n};Y^{n})$ exactly. The data-processing
+\emph{inequality} is never needed. This was unexpected and is worth your eye.
+
+\paragraph{Single-letterization.}
+For any joint law of the input block,
+\[
+\begin{aligned}
+  I(X^{n};Y^{n})
+  &= H(Y^{n}) - \sum_{i} H(Y_i\mid X_i)\\[2pt]
+  &\le \sum_i H(Y_i) - \sum_i H(Y_i\mid X_i)
+   = \sum_i I(X_i;Y_i)
+   \;\le\; n\,C(W).
+\end{aligned}
+\]
+Memorylessness enters exactly once, in the first equality, and it is available
+\emph{definitionally}: the $n$-fold channel's law \emph{is} the product
+$\prod_i W(y_i\mid x_i)$, so ``given $X^{n}$, the $Y_i$ are independent'' is not a
+fact to be established. The only genuine inequality is subadditivity of entropy.
+The last step bounds each $I(X_i;Y_i)$ by the supremum $C(W)$, which requires
+knowing that supremum is over a bounded set --- see \textbf{D-7} in \S3.2.
+
+\paragraph{Fano's inequality,} in the crude form used here, is
+\[
+  H(M\mid Y^{n}) \;\le\; 1 + \Pe\,\log_2 M .
+\]
+It is proved by Gibbs' inequality against the explicit reference weight
+$w(m,y) = \nu(y)\,r(m\mid y)$, where $\nu$ is the output marginal and
+\[
+  r(m\mid y) =
+  \begin{cases}
+    \tfrac12, & m = g(y),\\[2pt]
+    \dfrac{1}{2(M-1)}, & m \neq g(y).
+  \end{cases}
+\]
+Because Gibbs is stated for a \emph{sub-probability} weight ($w\ge 0$,
+$\sum w \le 1$) rather than a probability distribution, the degenerate case
+$M=1$ needs no separate treatment: the reference has total mass $1$ when
+$M\ge 2$ and $\tfrac12$ when $M=1$, and the inequality is indifferent to which.
+
+\subsection{Achievability}
+
+The route is random coding with \emph{threshold decoding on the information
+density}, not joint typicality. Define
+\[
+  i_p(x;y) = \log_2\frac{W(y\mid x)}{(pW)(y)},
+  \qquad
+  i_p^{\,n}(x;y) = \sum_{j=1}^{n} i_p(x_j;y_j),
+\]
+so that $\mathbb{E}_{\mu_p}\bigl[i_p(X;Y)\bigr] = I(p;W)$. That identity is
+proved, and it is the bridge between the definition in \S2.1 and the quantity the
+argument actually concentrates.
+
+\paragraph{(a) A one-shot bound.}
+For every threshold $\tau$ and every $M\ge 1$ there exists a code with $M$
+messages such that
+\[
+  \Pe \;\le\;
+  \Pr\nolimits_{\mu_p^{\,n}}\bigl[\, i_p^{\,n}(X^{n};Y^{n}) \le \tau \,\bigr]
+  \;+\; M\,2^{-\tau}.
+\]
+The codebook is drawn i.i.d.\ from $p^{\,n}$ and decoded by thresholding the
+likelihood ratio. A decoding error means either the true codeword failed the
+threshold --- the first term --- or some other codeword passed it, which the
+union bound together with a change of measure bounds by $M2^{-\tau}$.
+
+\paragraph{(b) A weak law.}
+For $\delta>0$, $\Pr\bigl[i_p^{\,n} \le n(I(p;W)-\delta)\bigr]\to 0$. This is
+Chebyshev: on a finite alphabet the information density has finite variance, and
+the variance of the i.i.d.\ sum is $n$ times the single-letter variance. No
+measure theory is used anywhere in the development; everything is a finite sum.
+
+\paragraph{(c) Assembly.}
+Given $R<I(p;W)$, take $\delta = \tfrac12\bigl(I(p;W)-R\bigr)$,
+$\tau = n\bigl(I(p;W)-\delta\bigr)$ and $M = \lceil 2^{nR}\rceil$; then (a) and
+(b) drive both terms to $0$. For Theorem A one chooses $p$ with $I(p;W)>R$, which
+exists because $C(W)$ is a supremum, and the degenerate case $R\le 0$ is handled
+by a one-message code.
+
+\paragraph{This is an existence argument, and no encoder falls out of it.}
+The final step of (a) is a pigeonhole: since the \emph{average} error over the
+ensemble is at most the bound, \emph{some} codebook is at least as good as the
+average. That step exhibits a good codebook and gives no procedure for finding
+one. It is isolated in a single named lemma precisely so the claim is auditable
+rather than folklore.
+
+\paragraph{One technical remark.}
+The quantity $i_p(x;y)$ must be $-\infty$ when $W(y\mid x)=0$ and $(pW)(y)>0$.
+Under $\mu_p$ this never matters, since that law puts no mass on such pairs; but
+the union-bound term integrates against a \emph{product of marginals}, which does
+charge them, and there the change-of-measure bound fails outright. The decoder
+therefore thresholds on the mass inequality
+$2^{\tau}(pW)^{n}(y) < W^{n}(y\mid x)$, in which no logarithm appears, and a
+bridging lemma identifies this with $i_p^{\,n}>\tau$ exactly on the support of
+the joint law.
+
+\section{What needs your decision}
+
+\noindent
+\fbox{\begin{minipage}{0.965\textwidth}
+\smallskip
+\textbf{The request, in one place.} Decide \textbf{D-5} (how mutual information is
+defined). Then a yes or no on \textbf{D-3}, \textbf{D-7}, \textbf{D-8},
+\textbf{D-9} and \textbf{D-10}. Each choice below was made in order to get the
+proof through; none has been reviewed by anyone with authority over the
+mathematics. All are load-bearing under a complete proof, so a rejection has a
+cost --- which is stated, so it can be weighed.
+\smallskip
+\end{minipage}}
+
+\subsection{D-5 --- how mutual information is defined. Decide this one first.}
+
+\begin{decisionblock}{The choice}
+\noindent\emph{Current definition:}
+\[
+  I(A;B) \;=\; H(A) + H(B) - H(A,B).
+\]
+\noindent\emph{The alternative, and the one most readers would expect:}
+\[
+  I(A;B) \;=\; \sum_{a,b}\mu(a,b)\,
+    \log_2\frac{\mu(a,b)}{\mu_A(a)\,\mu_B(b)}.
+\]
+\end{decisionblock}
+
+\paragraph{Why the first was chosen.}
+It contains no division. The relative-entropy form has a quotient whose
+denominator can vanish, so every lemma stated through it carries an implicit
+hypothesis that the conditioning event has positive mass --- and that is exactly
+the class of hypothesis that gets assumed silently rather than discharged. With
+inclusion--exclusion there is nothing to assume: entropy is total, the chain rule
+$H(A) = I(A;B)+H(A\mid B)$ is an algebraic identity, and no statement anywhere in
+the development needs a support condition.
+
+\paragraph{What it costs.} Two things, both real.
+\begin{enumerate}[label=(\arabic*)]
+  \item $I(A;B)\ge 0$ \textbf{is not immediate.} Under the relative-entropy form
+        it is Gibbs' inequality directly. Here it is subadditivity of entropy,
+        which is a theorem --- and in fact it is \textbf{not currently proved},
+        because neither of the two theorems needed it. See \S4.
+  \item \textbf{Agreement with the relative-entropy form is a lemma, not a
+        definition,} and it is not proved. A reader who expects the standard
+        formula has to take the identification on trust, or prove it.
+\end{enumerate}
+
+\paragraph{The decision.}
+If the relative-entropy form should be the definition, say so now. The entropy
+toolkit, Fano's inequality, single-letterization and the information-density
+bridge all rest on the current choice, so the change is not free --- but it is far
+cheaper now than after anything further is built on top. If inclusion--exclusion
+is acceptable as the definition, the natural follow-up is to prove the
+identification with the relative-entropy form as a lemma, so that the development
+connects to the standard literature explicitly rather than by assertion.
+
+\subsection{The other open conventions}
+
+Each is genuinely open. None is merely cosmetic; none is as consequential as
+D-5.
+
+\paragraph{D-10 --- the converse is stated over $R$, not $\limsup$, and this is a
+soundness issue rather than a stylistic one.}
+The natural-looking statement ``$\limsup_n R(\code_n)\le C(W)$ whenever the error
+vanishes'' is, as written, \emph{weaker than it appears}. In the formalization
+$\limsup$ of a real sequence is an infimum of eventual upper bounds; for a
+sequence unbounded above that set is empty, and the infimum evaluates to $0$. An
+unbounded rate sequence with vanishing error would therefore satisfy the
+$\limsup$ statement vacuously. Theorem B is accordingly stated over a fixed $R$,
+and Theorem B$'$ carries an explicit boundedness hypothesis. \emph{Please confirm
+that the $R$-form should be primary.}
+
+\paragraph{D-7 --- capacity is a supremum, and attainment is not assumed.}
+$C(W)=\sup_p I(p;W)$, with attainment deliberately not a prerequisite for stating
+it. The same infimum-of-the-empty-set phenomenon applies: an unbounded set of
+achievable mutual informations would make the supremum evaluate to $0$. That the
+set is bounded is therefore proved rather than assumed, via
+$I \le H(Y) \le \log_2|\Y|$, through the \emph{output} alphabet.
+
+\paragraph{D-3 --- blocks are functions $\{1,\dots,n\}\to\X$, not length-$n$
+vectors.}
+Mathematically identical; chosen so that products over coordinates are ordinary
+finite products. No mathematical content turns on it.
+
+\paragraph{D-8 --- the message count is a natural number $M$, and the size
+condition is written once, as $2^{nR}\le M$ over the reals.}
+No floor or ceiling appears in any \emph{statement} in the development; ceilings
+appear only inside constructions. This was a deliberate guard against the usual
+source of silent off-by-one errors in asymptotic rate bookkeeping.
+
+\paragraph{D-9 --- a code does not mention the channel.}
+$\code=(M,f,g)$ depends only on the alphabets; the channel enters only when the
+error probability is computed. This is the honest reading of what a code is, at
+the cost of writing $\Pe(\code,W)$ rather than $\Pe(\code)$.
+
+\section{What is not built}
+
+Stated as plainly as what is. \emph{None of these is a gap in the two theorems},
+both of which are complete and unconditional. They are simply not attempted.
+
+\begin{itemize}
+  \item \textbf{Attainment of capacity}, $\exists\,p,\ I(p;W)=C(W)$. Not proved.
+        Would require compactness of the probability simplex and continuity of
+        $I(\cdot\,;W)$. By design this is not a prerequisite for stating $C(W)$
+        (D-7).
+  \item \textbf{Continuity and concavity of $I(\cdot\,;W)$.} Not proved.
+  \item \textbf{Identification of the mutual information of \S2.1 with the
+        relative-entropy form.} Not proved. This is the standing cost of D-5.
+  \item $\boldsymbol{I(A;B)\ge 0}$. Not proved as a standalone fact --- neither
+        theorem needed it. Flagged because a reviewer would reasonably expect it
+        to be present.
+  \item \textbf{Joint typicality.} No typicality set exists in the development,
+        and none is needed: achievability was formalized along the
+        information-density route, which requires one concentration estimate
+        rather than three. Absent \emph{by choice of route}, not by omission.
+  \item Everything in \S1.3 --- maximal error, the strong converse, expurgation,
+        feedback, continuous alphabets.
+\end{itemize}
+
+\section{Status, and what would help most}
+
+The development is complete: both theorems proved, no unproved obligations, and
+the only axioms used are the three standard classical ones on which every result
+in the ambient mathematical library already depends. It builds clean.
+
+What it does \emph{not} have is exactly what this note asks for. A proof
+assistant can check that the derivations are valid. It cannot check that $C(W)$,
+$R(\code)$, $\Pe(\code)$ and $I(p;W)$ mean what an information theorist means by
+them. Those are stipulations, and reviewing them is the one part of this that no
+machine can do.
+
+The most useful thing to return is a decision on \textbf{D-5}, and a yes or no on
+each of D-3, D-7, D-8, D-9 and D-10. If D-5 is to change, it is much cheaper to
+change it now than after anything else is built on top.
+
+\vfill
+\noindent\rule{\textwidth}{0.4pt}\\[2pt]
+{\footnotesize
+Sources, and the evidence base from which every claim here is drawn, at
+\url{https://github.com/aaslyan/FiniteDMC}. The companion documents are
+\texttt{REVIEW.md} (this note in Markdown), \texttt{DOSSIER.md} (evidence, every
+claim traced to a build result or a source read), \texttt{GOAL.md} (the twelve
+conventions and the obligation ledger) and \texttt{HARD-PARTS.md} (the two hard
+obligations, and a junk-value defect found and quarantined while discharging
+them).}
+
+\end{document}
