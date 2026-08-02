@@ -25,10 +25,15 @@ sums over finite types, including the law of large numbers. Mathlib has no
 discrete Shannon entropy, so that layer is built here from `Real.log_le_sub_one_of_pos`
 alone, with no appeal to Jensen or convexity.
 
-**No convention is settled.** See [`GOAL.md`](GOAL.md) for the statements, the
-draft convention choices, and the `sorry` list; and
-[`HARD-PARTS.md`](HARD-PARTS.md) for the two obligations that need a decision
-before they are attempted.
+**No convention is settled.** [`REVIEW.md`](REVIEW.md) is the short paper for
+the information-theory reviewer: both theorems in ordinary notation, the spine of
+the proof, and the definitional choices that need a decision. Start there.
+
+For the supporting detail: [`GOAL.md`](GOAL.md) records the statements and the
+twelve draft conventions, [`DOSSIER.md`](DOSSIER.md) is the evidence base with
+every claim traced to a build result or source read, and
+[`HARD-PARTS.md`](HARD-PARTS.md) keeps the record of the two hard obligations and
+the junk-value defect found while discharging them.
 
 ## Layout
 
