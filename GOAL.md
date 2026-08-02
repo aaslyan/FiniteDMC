@@ -1,8 +1,10 @@
 # GOAL — finite DMC coding theorem
 
-Review artifact for the opening session. **Nothing here is settled.** Every
-convention below is a draft for the information-theory collaborator to accept,
-amend, or reject. No individual `sorry` has been attempted.
+Review artifact. **No convention below is settled** — each is a draft for the
+information-theory collaborator to accept, amend, or reject. Nine of the eleven
+obligations have since been proved; the conventions they were built on are
+still open, and revising one now costs the work that rests on it (D-5 in
+particular).
 
 - **Scope:** the coding theorem for **finite discrete memoryless channels** —
   finite alphabets, average block-error probability, achievability strictly
