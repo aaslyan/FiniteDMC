@@ -24,11 +24,11 @@ least `R` and average error at most `ε` exist for all sufficiently large block 
   `c.card : ℕ` coerced to `ℝ` and the power being `Real.rpow`.  No statement mentions a floor or a
   ceiling; `Nat.ceil` may appear inside a construction, but never in a statement.  See `GOAL.md`
   (decision D-8).
-* **`exists_blockCode_of_lt_mutualInfo` is an existence statement, not an algorithm.**  Its
-  intended proof is the random coding argument: bound the average error *over an ensemble* of
-  codebooks, then observe that some realisation is at least as good as the average.  That argument
-  yields no procedure for producing the good codebook, and nothing downstream should be phrased as
-  if it did.  See `GOAL.md` (decision D-12).
+* **`exists_blockCode_of_lt_mutualInfo` is an existence statement, not an algorithm.**  It is
+  proved by the random coding argument: bound the average error *over an ensemble* of codebooks,
+  then observe that some realisation is at least as good as the average.  That argument yields no
+  procedure for producing the good codebook, and nothing downstream should be phrased as if it
+  did.  See `GOAL.md` (decision D-12).
 -/
 
 namespace FiniteDMC

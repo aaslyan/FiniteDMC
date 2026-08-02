@@ -1,12 +1,17 @@
 # S9 and S10 — the two obligations that needed discussion
 
-> **Update: S9 is proved.** It came in at about 200 lines and needed no new
-> ideas, exactly as the "large but standard" reading below predicted. The
-> section is kept as a record of the estimate against the outcome. **S10 is now
-> the only open obligation in the repository**, and the questions at the end
-> still stand.
+> **Update 1 — S9 is proved.** It came in at about 200 lines and needed no new
+> ideas, exactly as the "large but standard" reading below predicted. At that
+> point S10 was the only open obligation in the repository.
+>
+> **Update 2 — S10 is proved too, and the repository has no `sorry` left.**
+> S10 was split into `exists_blockCode_avgError_le` (the random-coding bound)
+> and `tendsto_spectrumTail` (the weak law), both since discharged. This file
+> is kept as a record of the estimates against the outcomes, and of the
+> junk-value defect found while setting up the decoder — see the section on
+> that below, which is still live guidance and not history.
 
-Companion to [`GOAL.md`](GOAL.md). These are the two `sorry`s that are not
+Companion to [`GOAL.md`](GOAL.md). These were the two obligations that were not
 routine. Everything asserted here about Mathlib was checked against
 Mathlib v4.32.2 in this repository, not recalled.
 

@@ -12,8 +12,8 @@ import Mathlib.Analysis.SpecificLimits.Basic
 If a sequence of block codes for a finite DMC `W` has rate at least `R` and average error
 probability tending to `0`, then `R ≤ C`.
 
-The converse chain is complete except for single-letterisation: Fano's inequality and the
-data-processing step are proved here, and `DMC.mutualInfo_power_le` is the one remaining `sorry`.
+The converse chain is complete and unconditional.  Fano's inequality, the data-processing step
+and single-letterisation are all proved; nothing here is deferred.
 
 ## Main statements
 

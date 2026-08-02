@@ -101,7 +101,7 @@ noncomputable def BlockCode.avgError (c : BlockCode X Y n) (W : DMC X Y) : ℝ :
 | **D-9** | `BlockCode X Y n` does **not** mention the channel; the channel enters only via `condError` / `avgError`. | A code is a code regardless of the channel. Cost: `c.avgError W` rather than `c.avgError`. **Deviates from the brief's `BlockCode (W : DMC X Y) n`.** |
 | **D-10** | Weak converse stated primarily in **R-form**; the limsup form is a separate statement carrying an explicit `BddAbove` hypothesis. | **This is a soundness flag, not a taste preference.** `Filter.limsup` on `ℝ` is an `sInf`, so for a rate sequence unbounded above it evaluates to the junk value `0` and `limsup ≤ C` would hold *vacuously*. The brief's draft limsup form is, as written, weaker than it looks. |
 | **D-11** | Deterministic encoder and decoder; uniform messages; error probability as a `Finset` sum over the output block, not `PMF.toMeasure`. | Everything in sight is a `Fintype`, so measure theory buys nothing here. |
-| **D-12** | Achievability is pure existence. | `exists_blockCode_of_lt_mutualInfo` asserts a code exists; its intended proof is random coding (bound the ensemble average, then note some realisation beats the average). **No usable encoder comes out of it**, and nothing downstream should be phrased as if one does. |
+| **D-12** | Achievability is pure existence. | `exists_blockCode_of_lt_mutualInfo` asserts a code exists, and its proof is random coding: bound the ensemble average, then note that some realisation beats the average (`exists_le_of_sum_toReal_mul_le`). **No usable encoder comes out of it**, and nothing downstream should be phrased as if one does. |
 
 Deviations from the brief's illustrative signatures: **D-3, D-8, D-9** (and
 D-10 as a correction). These are the ones to reject first if you disagree.
@@ -217,19 +217,32 @@ Each is flagged, not patched.
 
 ---
 
-## 5. Anticipated but NOT in the Lean file
+## 5. What is NOT in the Lean files
 
-Deliberately absent, because no proof attempt has forced them yet. Listing them
-so the omission is visible rather than an oversight:
+Two items listed here in earlier drafts have since been built, and are recorded
+as such rather than left overstating the omissions:
 
-- **"Some realisation beats the average"** — the pigeonhole step
-  `(∑ i, μ i · f i ≤ b) → ∃ i, μ i ≠ 0 ∧ f i ≤ b` that makes random coding
-  non-constructive. It belongs inside S10.
-- The i.i.d. input ensemble `pⁿ`, the joint-typicality set, and its quantified
-  estimates. All inside S10.
-- Attainment of capacity (`∃ p, I(p;W) = C`), continuity/concavity of
-  `mutualInfo`, and the identification of D-5's `mutualInfo` with the KL form.
-  All later, all separate.
+- ~~"Some realisation beats the average"~~ — **built**, as
+  `exists_le_of_sum_toReal_mul_le` in `FiniteDMC/RandomCoding.lean`. This is the
+  step that makes random coding non-constructive, and it is now isolated and
+  proved rather than buried inside the argument.
+- ~~The i.i.d. input ensemble `pⁿ`~~ — **built**, as `PMF.pi`, which Mathlib
+  does not provide. It supplies both the i.i.d. input law and the codebook
+  ensemble.
+
+Genuinely absent:
+
+- **The joint-typicality set and its estimates.** Absent *by choice, not by
+  omission*: achievability was formalised along the information-density
+  threshold route, which needs one concentration estimate rather than three and
+  no typicality set at all. Nothing in the development requires one.
+- **Attainment of capacity** (`∃ p, I(p ; W) = C`), continuity and concavity of
+  `mutualInfo`, and the identification of D-5's `mutualInfo` with the
+  Kullback-Leibler form. All separate, none needed for either top-level
+  theorem — attainment in particular is deliberately not a prerequisite for
+  stating capacity (D-7).
+- **Anything outside the scope fixed at the top of this file**: maximal error,
+  the strong converse, expurgation, feedback, continuous alphabets.
 
 ---
 
