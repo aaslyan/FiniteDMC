@@ -52,6 +52,40 @@ theorem sum_coe_eq_one [Fintype α] (p : PMF α) : ∑ a, p a = 1 := by
 theorem sum_toReal_eq_one [Fintype α] (p : PMF α) : ∑ a, (p a).toReal = 1 := by
   rw [← ENNReal.toReal_sum fun a _ ↦ p.apply_ne_top a, sum_coe_eq_one, ENNReal.toReal_one]
 
+/-- A type carrying a `PMF` is nonempty. -/
+theorem nonempty_of_pmf (p : PMF α) : Nonempty α := by
+  by_contra hα
+  rw [not_nonempty_iff] at hα
+  have h := p.tsum_coe
+  simp at h
+
+/-- `PMF.map` evaluated on a finite type, as a `Finset` sum. -/
+theorem map_apply_fintype [Fintype α] [DecidableEq β] (f : α → β) (p : PMF α) (b : β) :
+    (p.map f) b = ∑ a, if b = f a then p a else 0 := by
+  rw [PMF.map_apply, tsum_fintype]
+  exact Finset.sum_congr rfl fun a _ ↦ by convert rfl
+
+/-- Change of variables against a pushforward law: summing a weight `g` against `p.map f` is the
+same as summing `g ∘ f` against `p`. -/
+theorem sum_map_toReal_mul [Fintype α] [Fintype β] (p : PMF α) (f : α → β)
+    (g : β → ℝ) : ∑ b, ((p.map f) b).toReal * g b = ∑ a, (p a).toReal * g (f a) := by
+  classical
+  have h : ∀ b : β, ((p.map f) b).toReal = ∑ a, (if b = f a then p a else 0).toReal := by
+    intro b
+    rw [map_apply_fintype, ENNReal.toReal_sum]
+    intro a _
+    split
+    · exact p.apply_ne_top a
+    · simp
+  simp_rw [h, Finset.sum_mul]
+  rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun a _ ↦ ?_
+  rw [Finset.sum_eq_single (f a)]
+  · simp
+  · intro b _ hb
+    simp [hb]
+  · simp
+
 /-- The Shannon entropy `H(p) = -∑ a, p a * log₂ (p a)` of a distribution on a finite type,
 measured in bits. -/
 noncomputable def entropy [Fintype α] (p : PMF α) : ℝ :=

@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ara Aslyan
 -/
 import FiniteDMC.Entropy
+import FiniteDMC.EntropyBounds
 import FiniteDMC.Channel
 import FiniteDMC.Code
 import FiniteDMC.Achievability

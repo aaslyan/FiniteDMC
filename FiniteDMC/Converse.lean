@@ -95,15 +95,8 @@ theorem BlockCode.entropy_messageDist (c : BlockCode X Y n) :
 
 /-- The message marginal of the joint message-output law is the uniform message law. -/
 theorem BlockCode.msgOutJoint_map_fst (c : BlockCode X Y n) (W : DMC X Y) :
-    (c.msgOutJoint W).map Prod.fst = c.messageDist := by
-  rw [BlockCode.msgOutJoint, PMF.map_bind]
-  have h : ∀ m : Fin c.card,
-      (((W.power n).transition (c.encode m)).map fun y ↦ (m, y)).map Prod.fst = PMF.pure m := by
-    intro m
-    rw [PMF.map_comp]
-    exact PMF.map_const _ _
-  simp only [h]
-  exact PMF.bind_pure _
+    (c.msgOutJoint W).map Prod.fst = c.messageDist :=
+  DMC.joint_map_fst _ _
 
 /-- **Fano's inequality**, specialised to a block code: the residual uncertainty about the message
 given the channel output is controlled by the average error probability.
@@ -117,7 +110,16 @@ theorem BlockCode.fano_inequality (c : BlockCode X Y n) (W : DMC X Y) :
 the encoder cannot increase the information the output carries about the message. -/
 theorem BlockCode.mutualInfo_msgOutJoint_le (c : BlockCode X Y n) (W : DMC X Y) :
     mutualInfo (c.msgOutJoint W) ≤ mutualInfo (c.inOutJoint W) := by
-  sorry
+  classical
+  refine le_of_eq ?_
+  change (c.codeChannel W).mutualInfo c.messageDist
+      = (W.power n).mutualInfo (c.messageDist.map c.encode)
+  rw [DMC.mutualInfo_eq, DMC.mutualInfo_eq]
+  congr 1
+  · congr 1
+    exact (PMF.bind_map c.messageDist c.encode (W.power n).transition).symm
+  · exact (sum_map_toReal_mul c.messageDist c.encode
+      fun x ↦ entropy ((W.power n).transition x)).symm
 
 /-- **Single-letterisation**: `n` uses of a memoryless channel carry at most `n * C` bits,
 whatever the joint law of the input block. -/

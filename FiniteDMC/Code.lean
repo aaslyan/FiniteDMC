@@ -77,9 +77,20 @@ noncomputable def messageDist : PMF (Fin c.card) :=
   haveI := c.nonempty_fin
   PMF.uniformOfFintype (Fin c.card)
 
+/-- The channel from messages to output blocks induced by a code: encode, then transmit.
+
+Presenting the code this way lets the whole joint-law and mutual-information API for `DMC` be
+reused verbatim on the message-to-output link. -/
+noncomputable def codeChannel : DMC (Fin c.card) (Fin n → Y) where
+  transition m := (W.power n).transition (c.encode m)
+
+@[simp]
+theorem codeChannel_transition (m : Fin c.card) :
+    (c.codeChannel W).transition m = (W.power n).transition (c.encode m) := rfl
+
 /-- The joint law of the transmitted message and the received block, the message being uniform. -/
 noncomputable def msgOutJoint : PMF (Fin c.card × (Fin n → Y)) :=
-  c.messageDist.bind fun m ↦ ((W.power n).transition (c.encode m)).map fun y ↦ (m, y)
+  (c.codeChannel W).joint c.messageDist
 
 /-- The joint law of the transmitted input block and the received block, the message being
 uniform. -/
