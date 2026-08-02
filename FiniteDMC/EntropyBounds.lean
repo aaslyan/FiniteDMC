@@ -22,6 +22,8 @@ inequality or to convexity machinery.
   weight*, `H(p) ≤ -∑ p log₂ w` whenever `w ≥ 0` and `∑ w ≤ 1`.
 * `FiniteDMC.entropy_le_crossEntropy` : the same against a reference `PMF`.
 * `FiniteDMC.entropy_le_logb_card` : the maximum-entropy bound `H(p) ≤ log₂ |α|`.
+* `FiniteDMC.entropy_le_sum_entropy_proj` : subadditivity across coordinates,
+  `H(Y₁ … Yₙ) ≤ ∑ᵢ H(Yᵢ)`.
 
 ## Implementation notes
 
@@ -111,5 +113,59 @@ theorem entropy_le_logb_card [Nonempty α] (p : PMF α) :
   simp only [PMF.uniformOfFintype_apply, ENNReal.toReal_inv, ENNReal.toReal_natCast,
     Real.logb_inv, mul_neg, Finset.sum_neg_distrib, neg_neg, ← Finset.sum_mul,
     sum_toReal_eq_one, one_mul]
+
+/-- If a product of nonnegative reals is positive then every factor is. -/
+theorem pos_of_prod_pos {ι : Type*} (s : Finset ι) (f : ι → ℝ) (hf : ∀ i ∈ s, 0 ≤ f i)
+    (h : 0 < ∏ i ∈ s, f i) : ∀ i ∈ s, 0 < f i := by
+  intro i hi
+  rcases eq_or_lt_of_le (hf i hi) with he | hlt
+  · exfalso
+    rw [Finset.prod_eq_zero hi he.symm] at h
+    exact lt_irrefl 0 h
+  · exact hlt
+
+/-- Base-2 logarithm of a product of positive factors. -/
+theorem logb_prod_of_pos {ι : Type*} (s : Finset ι) (f : ι → ℝ) (hf : ∀ i ∈ s, 0 < f i) :
+    Real.logb 2 (∏ i ∈ s, f i) = ∑ i ∈ s, Real.logb 2 (f i) := by
+  simp only [Real.logb, ← Finset.sum_div]
+  congr 1
+  exact Real.log_prod fun i hi ↦ ne_of_gt (hf i hi)
+
+/-- **Subadditivity of entropy** across coordinates: a joint law on `Fin n → α` has entropy at
+most the sum of its coordinate marginals' entropies. -/
+theorem entropy_le_sum_entropy_proj {n : ℕ} (p : PMF (Fin n → α)) :
+    entropy p ≤ ∑ i, entropy (p.map fun y ↦ y i) := by
+  classical
+  set m : Fin n → PMF α := fun i ↦ p.map (fun y ↦ y i) with hm
+  have hdom : ∀ (y : Fin n → α) (i : Fin n), p y ≤ m i (y i) := fun y i ↦ le_map_apply p _ y
+  have hwnonneg : ∀ y : Fin n → α, 0 ≤ ∏ i, (m i (y i)).toReal :=
+    fun y ↦ Finset.prod_nonneg fun i _ ↦ ENNReal.toReal_nonneg
+  have hw1 : ∑ y : Fin n → α, ∏ i, (m i (y i)).toReal = 1 := by
+    rw [← Fintype.prod_sum (fun (i : Fin n) (a : α) ↦ (m i a).toReal)]
+    exact Finset.prod_eq_one fun i _ ↦ sum_toReal_eq_one _
+  have hac : ∀ y : Fin n → α, (∏ i, (m i (y i)).toReal) = 0 → p y = 0 := by
+    intro y hy
+    obtain ⟨i, _, hi⟩ := Finset.prod_eq_zero_iff.1 hy
+    have hz : m i (y i) = 0 := by
+      rwa [ENNReal.toReal_eq_zero_iff, or_iff_left ((m i).apply_ne_top _)] at hi
+    exact le_antisymm (hz ▸ hdom y i) _root_.zero_le
+  have hgibbs := entropy_le_neg_sum_mul_logb p (fun y ↦ ∏ i, (m i (y i)).toReal)
+    hwnonneg (le_of_eq hw1) hac
+  have hsplit : ∀ y : Fin n → α, (p y).toReal * Real.logb 2 (∏ i, (m i (y i)).toReal)
+      = ∑ i, (p y).toReal * Real.logb 2 (m i (y i)).toReal := by
+    intro y
+    rcases eq_or_lt_of_le (ENNReal.toReal_nonneg : (0 : ℝ) ≤ (p y).toReal) with h | h
+    · rw [← h]; simp
+    · have hpos : ∀ i ∈ Finset.univ, 0 < (m i (y i)).toReal := fun i _ ↦
+        lt_of_lt_of_le h (ENNReal.toReal_mono ((m i).apply_ne_top _) (hdom y i))
+      rw [logb_prod_of_pos _ _ hpos, Finset.mul_sum]
+  have hinner : ∀ i : Fin n, ∑ y : Fin n → α, (p y).toReal * Real.logb 2 (m i (y i)).toReal
+      = -entropy (m i) := by
+    intro i
+    rw [entropy, neg_neg]
+    exact (sum_map_toReal_mul p (fun y ↦ y i) (fun a ↦ Real.logb 2 (m i a).toReal)).symm
+  rw [Finset.sum_congr rfl fun y _ ↦ hsplit y, Finset.sum_comm,
+    Finset.sum_congr rfl fun i _ ↦ hinner i] at hgibbs
+  simpa using hgibbs
 
 end FiniteDMC

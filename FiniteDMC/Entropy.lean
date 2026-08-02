@@ -46,8 +46,9 @@ namespace FiniteDMC
 
 open Finset
 
-variable {α β : Type*}
+variable {α β Z : Type*}
 
+set_option linter.unusedFintypeInType false in
 /-- The masses of a `PMF` on a finite type sum to `1`. -/
 theorem sum_coe_eq_one [Fintype α] (p : PMF α) : ∑ a, p a = 1 := by
   rw [← p.tsum_coe, tsum_fintype]
@@ -90,6 +91,9 @@ theorem sum_map_toReal_mul [Fintype α] [Fintype β] (p : PMF α) (f : α → β
     simp [hb]
   · simp
 
+-- In this lemma and the two below, the `Fintype` instances are used by the proofs, via
+-- `map_apply_fintype`, even though they do not appear in the statements.
+set_option linter.unusedFintypeInType false in
 /-- The second marginal, evaluated as a sum. -/
 theorem map_snd_apply [Fintype α] [Fintype β] (μ : PMF (α × β)) (b : β) :
     (μ.map Prod.snd) b = ∑ a, μ (a, b) := by
@@ -101,11 +105,44 @@ theorem map_snd_apply [Fintype α] [Fintype β] (μ : PMF (α × β)) (b : β) :
   · intro c _ hc; simp [Ne.symm hc]
   · simp
 
+set_option linter.unusedFintypeInType false in
+/-- A mass is dominated by the mass its pushforward puts on the image point. -/
+theorem le_map_apply {α β : Type*} [Fintype α] [Fintype β] (p : PMF α) (f : α → β) (a : α) :
+    p a ≤ (p.map f) (f a) := by
+  classical
+  rw [map_apply_fintype]
+  calc p a = if f a = f a then p a else 0 := by simp
+    _ ≤ ∑ a', if f a = f a' then p a' else 0 :=
+        Finset.single_le_sum (f := fun a' ↦ if f a = f a' then p a' else 0)
+          (fun i _ ↦ _root_.zero_le) (Finset.mem_univ a)
+
+set_option linter.unusedFintypeInType false in
 /-- A joint mass is dominated by its second marginal. -/
 theorem le_map_snd [Fintype α] [Fintype β] (μ : PMF (α × β)) (a : α) (b : β) :
-    μ (a, b) ≤ (μ.map Prod.snd) b := by
-  rw [map_snd_apply]
-  exact Finset.single_le_sum (f := fun i ↦ μ (i, b)) (fun i _ ↦ _root_.zero_le) (Finset.mem_univ a)
+    μ (a, b) ≤ (μ.map Prod.snd) b := le_map_apply μ Prod.snd (a, b)
+
+/-- Summing a product weight against a function of a single coordinate collapses to that
+coordinate's factor. -/
+theorem sum_prod_mul {R : Type*} [CommSemiring R] [Fintype β] {n : ℕ} (t : Fin n → β → R)
+    (ht : ∀ j, ∑ a, t j a = 1) (i : Fin n) (g : β → R) :
+    ∑ y : Fin n → β, (∏ j, t j (y j)) * g (y i) = ∑ a, t i a * g a := by
+  classical
+  have hpt : ∀ y : Fin n → β, (∏ j, t j (y j)) * g (y i)
+      = ∏ j, (if j = i then t j (y j) * g (y j) else t j (y j)) := by
+    intro y
+    rw [← Finset.mul_prod_erase Finset.univ
+          (fun j ↦ if j = i then t j (y j) * g (y j) else t j (y j)) (Finset.mem_univ i),
+      ← Finset.mul_prod_erase Finset.univ (fun j ↦ t j (y j)) (Finset.mem_univ i), if_pos rfl,
+      Finset.prod_congr rfl (fun j hj ↦ if_neg (Finset.ne_of_mem_erase hj))]
+    ring
+  rw [Finset.sum_congr rfl fun y _ ↦ hpt y,
+    ← Fintype.prod_sum (fun (j : Fin n) (a : β) ↦ if j = i then t j a * g a else t j a),
+    ← Finset.mul_prod_erase Finset.univ
+        (fun j ↦ ∑ a, if j = i then t j a * g a else t j a) (Finset.mem_univ i)]
+  rw [Finset.prod_congr rfl (fun j hj ↦ by
+      simp only [if_neg (Finset.ne_of_mem_erase hj)]; exact ht j),
+    Finset.prod_const_one, mul_one]
+  simp
 
 /-- The Shannon entropy `H(p) = -∑ a, p a * log₂ (p a)` of a distribution on a finite type,
 measured in bits. -/

@@ -1,7 +1,7 @@
 # GOAL — finite DMC coding theorem
 
 Review artifact. **No convention below is settled** — each is a draft for the
-information-theory collaborator to accept, amend, or reject. Nine of the eleven
+information-theory collaborator to accept, amend, or reject. Ten of the eleven
 obligations have since been proved; the conventions they were built on are
 still open, and revising one now costs the work that rests on it (D-5 in
 particular).
@@ -10,9 +10,12 @@ particular).
   finite alphabets, average block-error probability, achievability strictly
   below capacity, weak converse above it. Not general/continuous channels, not
   Shannon–Hartley, not zero-error capacity, not the strong converse.
-- **State:** `lake build` succeeds. **2** `sorry`s remain: single-letterisation
-  (S9) and random-coding achievability (S10). Nine of the original eleven are
-  proved. Both top-level theorems are *fully proved from those `sorry`s*.
+- **State:** `lake build` succeeds. **1** `sorry` remains: random-coding
+  achievability (S10). Ten of the original eleven are proved.
+- **The weak converse is now an actual theorem** — `#print axioms` shows only
+  `propext`, `Classical.choice`, `Quot.sound`, with no `sorryAx`. Both its
+  `R`-form and its `limsup`-form, and the one-shot Fano bound, are unconditional.
+  Achievability still rests on S10.
 - **Toolchain:** Lean 4.32.2, Mathlib v4.32.2.
 
 ---
@@ -37,7 +40,7 @@ theorem weak_converse (W : DMC X Y) {R : ℝ} (codes : ∀ n, BlockCode X Y n)
 ```
 
 ```lean
-/-- Weak converse, limsup-form (the brief's draft shape; derived, still `sorry`). -/
+/-- Weak converse, limsup-form (the brief's draft shape). Also proved. -/
 theorem weak_converse_limsup (W : DMC X Y) (codes : ∀ n, BlockCode X Y n)
     (hbdd : BddAbove (Set.range fun n ↦ (codes n).rate))
     (herr : Tendsto (fun n ↦ (codes n).avgError W) atTop (𝓝 0)) :
@@ -104,7 +107,7 @@ D-10 as a correction). These are the ones to reject first if you disagree.
 
 ## 3. The `sorry` list
 
-**2 open, 9 discharged.** Classification uses the brief's categories. Note which
+**1 open, 10 discharged.** Classification uses the brief's categories. Note which
 categories came out **empty** — that is itself a result:
 
 - **Definition:** none. Every definition is concrete, so no `sorry` can hide a
@@ -119,11 +122,11 @@ categories came out **empty** — that is itself a result:
 
 | id | name | class | type | forced by |
 |----|------|-------|------|-----------|
-| **S9** | `DMC.mutualInfo_power_le` | Theorem | `(W.power n).mutualInfo q ≤ n * W.capacity` | `logb_card_le_capacity` |
 | **S10** | `exists_blockCode_of_lt_mutualInfo` | Theorem | `R < W.mutualInfo p → 0 < ε → ∀ᶠ n in atTop, ∃ c : BlockCode X Y n, (2:ℝ) ^ ((n:ℝ) * R) ≤ (c.card : ℝ) ∧ c.avgError W ≤ ε` | `coding_achievability` |
 
-Both have their own document, [`HARD-PARTS.md`](HARD-PARTS.md). S9 is large but
-standard; S10 needs a decision about which achievability proof to formalise.
+It is the only thing standing between the repository and a complete proof of the
+coding theorem. See [`HARD-PARTS.md`](HARD-PARTS.md); it needs a decision about
+which achievability argument to formalise before it is attempted.
 
 ### Discharged
 
@@ -137,6 +140,7 @@ standard; S10 needs a decision about which achievability proof to formalise.
 | **S6** | `BlockCode.le_rate_of_rpow_le_card` | `Real.logb_rpow` + monotonicity |
 | **S7** | `BlockCode.fano_inequality` | Gibbs against an explicit reference weight |
 | **S8** | `BlockCode.mutualInfo_msgOutJoint_le` | turned out to be an **equality** |
+| **S9** | `DMC.mutualInfo_power_le` | single-letterisation; ~200 lines, no new ideas |
 | **S11** | `weak_converse_limsup` | needed `IsCoboundedUnder`, hence `rate_nonneg` |
 
 ### The entropy toolkit that came out of it
@@ -149,8 +153,10 @@ Mathlib has no discrete Shannon entropy, so S2/S7/S8 forced one into existence i
 - `entropy_le_neg_sum_mul_logb` — Gibbs against an arbitrary *sub-probability
   weight* (`w ≥ 0`, `∑ w ≤ 1`), not just a `PMF`
 - `entropy_le_crossEntropy`, `entropy_le_logb_card`
-- and in `Channel.lean`: `DMC.entropy_joint` (chain rule) and `DMC.mutualInfo_eq`
-  (the normal form `I = H(Y) − ∑ₓ p x · H(W(·∣x))`)
+- `entropy_le_sum_entropy_proj` — subadditivity across coordinates
+- and in `Channel.lean`: `DMC.entropy_joint` (chain rule), `DMC.mutualInfo_eq`
+  (the normal form `I = H(Y) − ∑ₓ p x · H(W(·∣x))`), `entropy_power_transition`
+  (entropy of a product law) and `power_bind_map_proj` (coordinate marginals)
 
 Three findings worth review:
 
@@ -162,7 +168,12 @@ Three findings worth review:
    weight rather than a `PMF` absorbs the degenerate case: the reference weight
    has mass `1` when `|M| ≥ 2` and `1/2` when `|M| = 1`, and the bound is
    indifferent to which.
-3. **`DMC.joint` is now an explicit mass function** (`PMF.ofFintype`) rather than
+3. **S9 needed no new ideas, only volume** — about 200 lines, and the single
+   reusable workhorse is `sum_prod_mul`: summing a product weight against a
+   function of one coordinate collapses to that coordinate's factor. Stated over
+   an arbitrary `CommSemiring`, it serves both the real entropy computation and
+   the `ℝ≥0∞` marginal computation.
+4. **`DMC.joint` is now an explicit mass function** (`PMF.ofFintype`) rather than
    a `bind`, matching `DMC.power`, so `DMC.joint_apply` holds by `rfl`. Same
    measure — purely proof engineering, but it is what makes the entropy
    computations calculational rather than monadic.

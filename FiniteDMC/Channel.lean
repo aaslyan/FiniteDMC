@@ -28,6 +28,10 @@ alphabet `Y` is a stochastic matrix, i.e. a map `X → PMF Y`.
   is what makes the capacity bound and the data-processing step routine.
 * `FiniteDMC.bddAbove_range_mutualInfo` : capacity is a supremum of a bounded set, so it is not
   the junk value `0`.
+* `FiniteDMC.entropy_power_transition` : `H(Wⁿ(· ∣ x)) = ∑ᵢ H(W(· ∣ xᵢ))` — where memorylessness
+  is cashed in.
+* `FiniteDMC.power_bind_map_proj` : the `i`-th output coordinate depends on the input only through
+  the `i`-th input coordinate.
 
 ## Implementation notes
 
@@ -43,6 +47,7 @@ alphabet `Y` is a stochastic matrix, i.e. a map `X → PMF Y`.
 namespace FiniteDMC
 
 open Finset
+open scoped ENNReal
 
 variable {X Y : Type*} [Fintype X] [Fintype Y]
 
@@ -201,5 +206,81 @@ theorem bddAbove_range_mutualInfo (W : DMC X Y) :
   have h2 : 0 ≤ ∑ x, (p x).toReal * entropy (W.transition x) :=
     Finset.sum_nonneg fun x _ ↦ mul_nonneg ENNReal.toReal_nonneg (entropy_nonneg _)
   linarith
+
+/-- Every achievable mutual information is at most the capacity. -/
+theorem DMC.mutualInfo_le_capacity (W : DMC X Y) (p : PMF X) : W.mutualInfo p ≤ W.capacity :=
+  le_csSup (bddAbove_range_mutualInfo W) ⟨p, rfl⟩
+
+/-- **Entropy of a product distribution is the sum of the factors' entropies.**  Applied to
+`W.power n`, this is exactly where memorylessness is cashed in. -/
+theorem entropy_power_transition (W : DMC X Y) (n : ℕ) (x : Fin n → X) :
+    entropy ((W.power n).transition x) = ∑ i, entropy (W.transition (x i)) := by
+  classical
+  have ht : ∀ j : Fin n, ∑ a, (W.transition (x j) a).toReal = 1 := fun j ↦ sum_toReal_eq_one _
+  have hpt : ∀ y : Fin n → Y,
+      (∏ i, (W.transition (x i) (y i)).toReal) *
+          Real.logb 2 (∏ i, (W.transition (x i) (y i)).toReal)
+      = ∑ i, (∏ j, (W.transition (x j) (y j)).toReal) *
+          Real.logb 2 ((W.transition (x i) (y i)).toReal) := by
+    intro y
+    rcases eq_or_lt_of_le (Finset.prod_nonneg
+        (fun i _ ↦ (ENNReal.toReal_nonneg : (0:ℝ) ≤ (W.transition (x i) (y i)).toReal))) with h | h
+    · rw [← h]; simp
+    · rw [logb_prod_of_pos _ _ (pos_of_prod_pos _ _ (fun i _ ↦ ENNReal.toReal_nonneg) h),
+        Finset.mul_sum]
+  rw [entropy]
+  simp only [DMC.power_transition_apply, ENNReal.toReal_prod]
+  rw [Finset.sum_congr rfl fun y _ ↦ hpt y, Finset.sum_comm]
+  rw [Finset.sum_congr rfl fun i _ ↦
+    sum_prod_mul (fun j a ↦ (W.transition (x j) a).toReal) ht i
+      (fun a ↦ Real.logb 2 (W.transition (x i) a).toReal)]
+  rw [← Finset.sum_neg_distrib]
+  exact Finset.sum_congr rfl fun i _ ↦ rfl
+
+/-- The `i`-th output coordinate of a memoryless block channel depends on the input only through
+the `i`-th input coordinate. -/
+theorem power_bind_map_proj (W : DMC X Y) (n : ℕ) (q : PMF (Fin n → X)) (i : Fin n) :
+    (q.bind (W.power n).transition).map (fun y ↦ y i)
+      = (q.map (fun x ↦ x i)).bind W.transition := by
+  classical
+  have hmarg : ∀ (x : Fin n → X) (a : Y),
+      ∑ y : Fin n → Y, (if a = y i then ∏ j, W.transition (x j) (y j) else 0)
+        = W.transition (x i) a := by
+    intro x a
+    have h := sum_prod_mul (fun j (b : Y) ↦ W.transition (x j) b)
+      (fun j ↦ sum_coe_eq_one _) i (fun b ↦ if a = b then (1 : ℝ≥0∞) else 0)
+    simp only [mul_ite, mul_one, mul_zero] at h
+    rw [h]
+    simp
+  ext a
+  rw [map_apply_fintype, PMF.bind_apply, tsum_fintype]
+  have hL : ∑ y : Fin n → Y, (if a = y i then (q.bind (W.power n).transition) y else 0)
+      = ∑ x : Fin n → X, q x * W.transition (x i) a := by
+    have hstep : ∀ y : Fin n → Y, (if a = y i then (q.bind (W.power n).transition) y else 0)
+        = ∑ x : Fin n → X, (if a = y i then q x * ∏ j, W.transition (x j) (y j) else 0) := by
+      intro y
+      rw [PMF.bind_apply, tsum_fintype]
+      split
+      · simp only [DMC.power_transition_apply]
+      · simp
+    rw [Finset.sum_congr rfl fun y _ ↦ hstep y, Finset.sum_comm]
+    refine Finset.sum_congr rfl fun x _ ↦ ?_
+    rw [← hmarg x a, Finset.mul_sum]
+    exact Finset.sum_congr rfl fun y _ ↦ by split <;> simp
+  have hR : ∑ b : X, (q.map fun x ↦ x i) b * W.transition b a
+      = ∑ x : Fin n → X, q x * W.transition (x i) a := by
+    calc ∑ b : X, (q.map fun x ↦ x i) b * W.transition b a
+        = ∑ b : X, ∑ x : Fin n → X, (if b = x i then q x else 0) * W.transition b a := by
+          refine Finset.sum_congr rfl fun b _ ↦ ?_
+          rw [map_apply_fintype, Finset.sum_mul]
+      _ = ∑ x : Fin n → X, ∑ b : X, (if b = x i then q x else 0) * W.transition b a :=
+          Finset.sum_comm
+      _ = ∑ x : Fin n → X, q x * W.transition (x i) a := by
+          refine Finset.sum_congr rfl fun x _ ↦ ?_
+          rw [Finset.sum_eq_single (x i)]
+          · simp
+          · intro b _ hb; simp [hb]
+          · simp
+  rw [hL, hR]
 
 end FiniteDMC

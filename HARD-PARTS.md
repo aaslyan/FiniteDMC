@@ -1,4 +1,10 @@
-# S9 and S10 — the two obligations worth discussing before attempting
+# S9 and S10 — the two obligations that needed discussion
+
+> **Update: S9 is proved.** It came in at about 200 lines and needed no new
+> ideas, exactly as the "large but standard" reading below predicted. The
+> section is kept as a record of the estimate against the outcome. **S10 is now
+> the only open obligation in the repository**, and the questions at the end
+> still stand.
 
 Companion to [`GOAL.md`](GOAL.md). These are the two `sorry`s that are not
 routine. Everything asserted here about Mathlib was checked against
@@ -66,12 +72,23 @@ routed through `Prod.swap`. T2 is the better answer — it also gives symmetry o
 
 Worth confirming during review, since it is a direct consequence of D-5.
 
-### Verdict
+### Verdict — and what actually happened
 
-Substantial but not risky. Perhaps 300–600 lines. Every piece is standard, and
-the pieces are reusable — T1–T4 are exactly the entropy toolkit that S2, S7 and
-S8 also need, so the marginal cost of S9 *after* Tier B is much lower than its
-cost in isolation. **Sequencing matters more than difficulty here.**
+Predicted: substantial but not risky, perhaps 300–600 lines, cheaper if done
+after Tier B because the toolkit is shared.
+
+Actual: **~200 lines**, and the sequencing call was right — Gibbs (T3) and the
+capacity bound (T6) were already in place from Tier B, so S9 only had to add
+subadditivity, the product-entropy identity, and the coordinate-marginal
+identity. The one genuinely reusable piece that emerged was `sum_prod_mul`:
+summing a product weight against a function of a single coordinate collapses to
+that coordinate's factor. Stated over an arbitrary `CommSemiring`, it does duty
+both in the real-valued entropy computation and in the `ℝ≥0∞` marginal
+computation, which is most of why the total came in low.
+
+The `Prod.swap` friction predicted in T2 never materialised: routing everything
+through `DMC.mutualInfo_eq` meant conditional entropy in the second-coordinate
+sense was never needed.
 
 ---
 

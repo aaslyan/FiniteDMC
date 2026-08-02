@@ -43,7 +43,6 @@ variable {X Y : Type*} [Fintype X] [Fintype Y] {n : ℕ}
 
 /-! ### Facts consumed by the converse -/
 
-
 /-- Each conditional error probability is at most `1`, being a partial sum of the output law. -/
 theorem BlockCode.condError_le_one (c : BlockCode X Y n) (W : DMC X Y) (m : Fin c.card) :
     c.condError W m ≤ 1 := by
@@ -118,8 +117,6 @@ theorem BlockCode.sum_error_mass (c : BlockCode X Y n) (W : DMC X Y) :
 given the channel output is controlled by the average error probability.
 
 The `1` on the right is the usual crude bound `h₂(Pe) ≤ 1` for the binary entropy of `Pe`. -/
-
-
 theorem BlockCode.fano_inequality (c : BlockCode X Y n) (W : DMC X Y) :
     condEntropy (c.msgOutJoint W) ≤ 1 + c.avgError W * Real.logb 2 c.card := by
   classical
@@ -265,7 +262,37 @@ theorem BlockCode.mutualInfo_msgOutJoint_le (c : BlockCode X Y n) (W : DMC X Y) 
 whatever the joint law of the input block. -/
 theorem DMC.mutualInfo_power_le (W : DMC X Y) (n : ℕ) (q : PMF (Fin n → X)) :
     (W.power n).mutualInfo q ≤ n * W.capacity := by
-  sorry
+  classical
+  rw [DMC.mutualInfo_eq]
+  have hcond : ∑ x : Fin n → X, (q x).toReal * entropy ((W.power n).transition x)
+      = ∑ i : Fin n, ∑ a : X, ((q.map fun x ↦ x i) a).toReal * entropy (W.transition a) := by
+    calc ∑ x : Fin n → X, (q x).toReal * entropy ((W.power n).transition x)
+        = ∑ x : Fin n → X, ∑ i : Fin n, (q x).toReal * entropy (W.transition (x i)) := by
+          refine Finset.sum_congr rfl fun x _ ↦ ?_
+          rw [entropy_power_transition, Finset.mul_sum]
+      _ = ∑ i : Fin n, ∑ x : Fin n → X, (q x).toReal * entropy (W.transition (x i)) :=
+          Finset.sum_comm
+      _ = ∑ i : Fin n, ∑ a : X, ((q.map fun x ↦ x i) a).toReal * entropy (W.transition a) :=
+          Finset.sum_congr rfl fun i _ ↦
+            (sum_map_toReal_mul q (fun x ↦ x i) fun a ↦ entropy (W.transition a)).symm
+  have hout : entropy (q.bind (W.power n).transition)
+      ≤ ∑ i : Fin n, entropy ((q.map fun x ↦ x i).bind W.transition) := by
+    calc entropy (q.bind (W.power n).transition)
+        ≤ ∑ i : Fin n, entropy ((q.bind (W.power n).transition).map fun y ↦ y i) :=
+          entropy_le_sum_entropy_proj _
+      _ = ∑ i : Fin n, entropy ((q.map fun x ↦ x i).bind W.transition) :=
+          Finset.sum_congr rfl fun i _ ↦ by rw [power_bind_map_proj]
+  rw [hcond]
+  calc entropy (q.bind (W.power n).transition)
+        - ∑ i : Fin n, ∑ a : X, ((q.map fun x ↦ x i) a).toReal * entropy (W.transition a)
+      ≤ ∑ i : Fin n, entropy ((q.map fun x ↦ x i).bind W.transition)
+        - ∑ i : Fin n, ∑ a : X, ((q.map fun x ↦ x i) a).toReal * entropy (W.transition a) := by
+        linarith
+    _ = ∑ i : Fin n, W.mutualInfo (q.map fun x ↦ x i) := by
+        rw [← Finset.sum_sub_distrib]
+        exact Finset.sum_congr rfl fun i _ ↦ (DMC.mutualInfo_eq W _).symm
+    _ ≤ ∑ _i : Fin n, W.capacity := Finset.sum_le_sum fun i _ ↦ W.mutualInfo_le_capacity _
+    _ = n * W.capacity := by simp [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
 
 /-! ### The converse -/
 

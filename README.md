@@ -11,14 +11,11 @@ repository unless a separate, later decision says otherwise.
 
 ## Status
 
-`lake build` succeeds. **2** named, precisely typed `sorry`s remain; both
-top-level theorems are fully proved *from* them, and the connecting arguments are
-real proofs.
+`lake build` succeeds. **The weak converse is proved** — unconditionally, with no
+`sorry` anywhere beneath it, in both its `R`-form and its `limsup`-form.
 
-Nine of the original eleven obligations are discharged, including Fano's
-inequality, the data-processing step and the boundedness of capacity. What
-remains is single-letterisation (`I(Xⁿ;Yⁿ) ≤ n·C`) and random-coding
-achievability.
+**One** `sorry` remains: random-coding achievability (`S10`), which is all that
+stands between this repository and a complete proof of the coding theorem.
 
 **No convention is settled.** See [`GOAL.md`](GOAL.md) for the statements, the
 draft convention choices, and the `sorry` list; and
