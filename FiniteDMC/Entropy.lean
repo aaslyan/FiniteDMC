@@ -44,6 +44,14 @@ open Finset
 
 variable {α β : Type*}
 
+/-- The masses of a `PMF` on a finite type sum to `1`. -/
+theorem sum_coe_eq_one [Fintype α] (p : PMF α) : ∑ a, p a = 1 := by
+  rw [← p.tsum_coe, tsum_fintype]
+
+/-- The real-valued masses of a `PMF` on a finite type sum to `1`. -/
+theorem sum_toReal_eq_one [Fintype α] (p : PMF α) : ∑ a, (p a).toReal = 1 := by
+  rw [← ENNReal.toReal_sum fun a _ ↦ p.apply_ne_top a, sum_coe_eq_one, ENNReal.toReal_one]
+
 /-- The Shannon entropy `H(p) = -∑ a, p a * log₂ (p a)` of a distribution on a finite type,
 measured in bits. -/
 noncomputable def entropy [Fintype α] (p : PMF α) : ℝ :=

@@ -8,9 +8,10 @@ amend, or reject. No individual `sorry` has been attempted.
   finite alphabets, average block-error probability, achievability strictly
   below capacity, weak converse above it. Not general/continuous channels, not
   Shannon–Hartley, not zero-error capacity, not the strong converse.
-- **State:** `lake build` succeeds. 11 `sorry`s, all named and precisely typed.
-  Both top-level theorems are *fully proved from those `sorry`s* — the
-  connecting arguments are real Lean proofs, not placeholders.
+- **State:** `lake build` succeeds. **5** `sorry`s remain, all named and precisely
+  typed — the six self-contained ones have since been discharged. Both top-level
+  theorems are *fully proved from those `sorry`s* — the connecting arguments are
+  real Lean proofs, not placeholders.
 - **Toolchain:** Lean 4.32.2, Mathlib v4.32.2.
 
 ---
@@ -102,8 +103,8 @@ D-10 as a correction). These are the ones to reject first if you disagree.
 
 ## 3. The `sorry` list
 
-11 `sorry`s. Classification uses the brief's categories. Note which categories
-came out **empty** — that is itself a result:
+**5 open, 6 discharged.** Classification uses the brief's categories. Note which
+categories came out **empty** — that is itself a result:
 
 - **Definition:** none. Every definition is concrete, so no `sorry` can hide a
   definitional choice from review.
@@ -113,41 +114,45 @@ came out **empty** — that is itself a result:
 - **Measurement / External fact:** none. Everything below is intended to be
   proved in-repo, not imported from the literature.
 
-### Lemmas
+### Still open
 
-| id | name | type | forced by |
-|----|------|------|-----------|
-| **S1** | `power_sum_eq_one` | `∑ y : Fin n → Y, ∏ i, W.transition (x i) (y i) = 1` | well-definedness of `DMC.power` |
-| **S2** | `bddAbove_range_mutualInfo` | `BddAbove (Set.range fun p : PMF X ↦ W.mutualInfo p)` | well-definedness of `DMC.capacity` (D-7) |
-| **S3** | `BlockCode.avgError_le_one` | `c.avgError W ≤ 1` | `weak_converse` |
-| **S4** | `BlockCode.entropy_messageDist` | `entropy c.messageDist = Real.logb 2 c.card` | `logb_card_le_capacity` |
-| **S5** | `BlockCode.msgOutJoint_map_fst` | `(c.msgOutJoint W).map Prod.fst = c.messageDist` | `logb_card_le_capacity` |
-| **S6** | `BlockCode.le_rate_of_rpow_le_card` | `0 < n → (2:ℝ) ^ ((n:ℝ) * R) ≤ (c.card : ℝ) → R ≤ c.rate` | `coding_achievability` |
-
-### Theorems
-
-| id | name | type | forced by |
-|----|------|------|-----------|
-| **S7** | `BlockCode.fano_inequality` | `condEntropy (c.msgOutJoint W) ≤ 1 + c.avgError W * Real.logb 2 c.card` | `logb_card_le_capacity` |
-| **S8** | `BlockCode.mutualInfo_msgOutJoint_le` | `mutualInfo (c.msgOutJoint W) ≤ mutualInfo (c.inOutJoint W)` | `logb_card_le_capacity` |
-| **S9** | `DMC.mutualInfo_power_le` | `(W.power n).mutualInfo q ≤ n * W.capacity` | `logb_card_le_capacity` |
-| **S10** | `exists_blockCode_of_lt_mutualInfo` | `R < W.mutualInfo p → 0 < ε → ∀ᶠ n in atTop, ∃ c : BlockCode X Y n, (2:ℝ) ^ ((n:ℝ) * R) ≤ (c.card : ℝ) ∧ c.avgError W ≤ ε` | `coding_achievability` |
-| **S11** | `weak_converse_limsup` | see §1 | stated, not yet attempted |
+| id | name | class | type | forced by |
+|----|------|-------|------|-----------|
+| **S2** | `bddAbove_range_mutualInfo` | Lemma | `BddAbove (Set.range fun p : PMF X ↦ W.mutualInfo p)` | well-definedness of `DMC.capacity` (D-7); consumed by S9 |
+| **S7** | `BlockCode.fano_inequality` | Theorem | `condEntropy (c.msgOutJoint W) ≤ 1 + c.avgError W * Real.logb 2 c.card` | `logb_card_le_capacity` |
+| **S8** | `BlockCode.mutualInfo_msgOutJoint_le` | Theorem | `mutualInfo (c.msgOutJoint W) ≤ mutualInfo (c.inOutJoint W)` | `logb_card_le_capacity` |
+| **S9** | `DMC.mutualInfo_power_le` | Theorem | `(W.power n).mutualInfo q ≤ n * W.capacity` | `logb_card_le_capacity` |
+| **S10** | `exists_blockCode_of_lt_mutualInfo` | Theorem | `R < W.mutualInfo p → 0 < ε → ∀ᶠ n in atTop, ∃ c : BlockCode X Y n, (2:ℝ) ^ ((n:ℝ) * R) ≤ (c.card : ℝ) ∧ c.avgError W ≤ ε` | `coding_achievability` |
 
 S7 is Fano's inequality (the `1` is the crude bound `h₂(Pe) ≤ 1`). S8 is the
 data-processing inequality for `M → Xⁿ → Yⁿ`, stated **specialised to the code
 setting** rather than for an abstract Markov chain — a general DPI would need a
 Markov-chain notion nothing yet demands. S9 is single-letterisation.
 
-**S10 is by far the largest** and is the only one that is really a research-sized
-obligation: it is achievability at a fixed input distribution, i.e. the entire
-random-coding + joint-typicality argument. It is deliberately left undecomposed,
-because decomposing it means inventing the ensemble and typicality definitions,
-which the brief defers. Splitting it is the natural next review question.
+S9 and S10 are the two that are not routine; they have their own document,
+[`HARD-PARTS.md`](HARD-PARTS.md).
 
-### Proved outright (no `sorry`)
+### Discharged
 
-These are the connecting arguments, and they are real proofs:
+| id | name | note |
+|----|------|------|
+| **S1** | `power_sum_eq_one` | `Fintype.prod_sum` plus row normalisation |
+| **S3** | `BlockCode.avgError_le_one` | via a new `condError_le_one` |
+| **S4** | `BlockCode.entropy_messageDist` | entropy of the uniform law is `log₂ |M|` |
+| **S5** | `BlockCode.msgOutJoint_map_fst` | marginal of a `bind`, via `PMF.map_const` |
+| **S6** | `BlockCode.le_rate_of_rpow_le_card` | `Real.logb_rpow` + monotonicity; positivity of `card` genuinely used |
+| **S11** | `weak_converse_limsup` | needed `IsCoboundedUnder`, hence `rate_nonneg` |
+
+Five supporting lemmas were forced into existence by those proofs and are also
+proved: `sum_coe_eq_one`, `sum_toReal_eq_one`, `BlockCode.condError_le_one`,
+`BlockCode.avgError_nonneg`, `BlockCode.rate_nonneg`.
+
+`avgError_nonneg` is worth noting: it was written in the first session, found to
+be consumed by nothing, and deleted rather than left in to pad the graph. S11
+then forced it back — along with `rate_nonneg`, which had not been anticipated
+at all. The discovery discipline worked in both directions.
+
+### The connecting arguments (no `sorry`)
 
 - `entropy_map_fst_eq_mutualInfo_add_condEntropy` — the chain rule
   `H(A) = I(A;B) + H(A∣B)`; by `ring`, thanks to D-5.
@@ -159,30 +164,37 @@ These are the connecting arguments, and they are real proofs:
 - `coding_achievability` — from S6 and S10.
 - `weak_converse` — from S3 and the two lemmas above, including the limit
   argument.
+- `weak_converse_limsup` — from the same rate bound plus `rate_nonneg` and
+  `avgError_nonneg`.
 
 ### Dependency graph
 
+Solid nodes are proved; the five dashed ones are what remains.
+
 ```mermaid
 graph TD
-  S1[S1 power_sum_eq_one] --> P[DMC.power]
-  S2[S2 bddAbove_range_mutualInfo] -.-> C[DMC.capacity well-defined]
-  S2 -.-> S9
-
   S4[S4 entropy_messageDist] --> L[logb_card_le_capacity]
   S5[S5 msgOutJoint_map_fst] --> L
-  S7[S7 fano_inequality] --> L
-  S8[S8 mutualInfo_msgOutJoint_le] --> L
-  S9[S9 mutualInfo_power_le] --> L
+  S7[S7 fano_inequality]:::open --> L
+  S8[S8 mutualInfo_msgOutJoint_le]:::open --> L
+  S9[S9 mutualInfo_power_le]:::open --> L
+  S2[S2 bddAbove_range_mutualInfo]:::open -.-> S9
+  S2 -.-> C[DMC.capacity well-defined]
+  S1[S1 power_sum_eq_one] --> P[DMC.power]
+
   L --> RB[rate_mul_one_sub_avgError_le]
   RB --> WC[weak_converse]
+  RB --> S11[S11 weak_converse_limsup]
   S3[S3 avgError_le_one] --> WC
-  RB -.-> S11[S11 weak_converse_limsup]
 
   S6[S6 le_rate_of_rpow_le_card] --> A[coding_achievability]
-  S10[S10 exists_blockCode_of_lt_mutualInfo] --> A
+  S10[S10 exists_blockCode_of_lt_mutualInfo]:::open --> A
+
+  classDef open stroke-dasharray: 5 4;
 ```
 
-Dotted edges are expected dependencies of `sorry`s not yet attempted.
+The dotted edge from S2 to S9 is an expected dependency, not yet realised in
+code: bounding against a supremum needs `le_csSup`, which needs boundedness.
 
 ---
 
@@ -223,9 +235,6 @@ Each is flagged, not patched.
 Deliberately absent, because no proof attempt has forced them yet. Listing them
 so the omission is visible rather than an oversight:
 
-- `avgError_nonneg`. Obviously true and obviously wanted — but after factoring
-  out `rate_mul_one_sub_avgError_le`, nothing consumes it. It was written, found
-  to be unused, and removed rather than left in to pad the graph.
 - **"Some realisation beats the average"** — the pigeonhole step
   `(∑ i, μ i · f i ≤ b) → ∃ i, μ i ≠ 0 ∧ f i ≤ b` that makes random coding
   non-constructive. It belongs inside S10.
@@ -265,6 +274,10 @@ would otherwise have to take on trust:
    carry `BddAbove`.
 4. Should **S10** be split now (which means committing to ensemble and
    typicality definitions), or left whole until the rest of the graph is closed?
-5. Which `sorry` should be attempted first? S1, S3, S4, S5, S6 look like
-   self-contained warm-ups; S7–S9 are the real information theory; S10 is a
-   project of its own.
+   See [`HARD-PARTS.md`](HARD-PARTS.md), which argues for an information-density
+   threshold decoder over the textbook joint-typicality route.
+5. **D-5 blocks the next step.** S2, S7, S8 and S9 all lean on the
+   inclusion–exclusion definition of mutual information, and they share one
+   entropy toolkit that does not exist yet. Confirming or revising D-5 is now on
+   the critical path, because that toolkit is what gets thrown away if it
+   changes.

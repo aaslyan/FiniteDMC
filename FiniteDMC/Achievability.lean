@@ -42,7 +42,14 @@ variable {X Y : Type*} [Fintype X] [Fintype Y] {n : ℕ} {R : ℝ}
 /-- A block code with at least `2 ^ (n * R)` messages has rate at least `R`. -/
 theorem BlockCode.le_rate_of_rpow_le_card (c : BlockCode X Y n) (hn : 0 < n)
     (h : (2 : ℝ) ^ ((n : ℝ) * R) ≤ c.card) : R ≤ c.rate := by
-  sorry
+  have hn' : (0 : ℝ) < n := by exact_mod_cast hn
+  have hpos : (0 : ℝ) < (2 : ℝ) ^ ((n : ℝ) * R) := Real.rpow_pos_of_pos (by norm_num) _
+  have hlog : (n : ℝ) * R ≤ Real.logb 2 c.card := by
+    calc (n : ℝ) * R = Real.logb 2 ((2 : ℝ) ^ ((n : ℝ) * R)) :=
+          (Real.logb_rpow (by norm_num) (by norm_num)).symm
+      _ ≤ Real.logb 2 c.card := Real.logb_le_logb_of_le (by norm_num) hpos h
+  rw [BlockCode.rate, le_div_iff₀ hn']
+  linarith
 
 /-- **Achievability at a fixed input distribution.**  If `R` is strictly below the mutual
 information `I(p ; W)`, then for all sufficiently large `n` there is a block code with at least

@@ -11,13 +11,18 @@ repository unless a separate, later decision says otherwise.
 
 ## Status
 
-Statements and dependency graph only. `lake build` succeeds; there are 11 named,
-precisely typed `sorry`s. Both top-level theorems are fully proved *from* those
-`sorry`s — the connecting arguments are real proofs.
+`lake build` succeeds. **5** named, precisely typed `sorry`s remain; both
+top-level theorems are fully proved *from* them, and the connecting arguments are
+real proofs.
 
-**No individual `sorry` has been attempted, and no convention is settled.** See
-[`GOAL.md`](GOAL.md) for the statements, the draft convention choices, and the
-`sorry` list with classifications; it is the artifact under review.
+The six self-contained obligations have been discharged. What remains is Fano's
+inequality, the data-processing inequality, single-letterisation, the
+boundedness of capacity, and random-coding achievability.
+
+**No convention is settled.** See [`GOAL.md`](GOAL.md) for the statements, the
+draft convention choices, and the `sorry` list; and
+[`HARD-PARTS.md`](HARD-PARTS.md) for the two obligations that need a decision
+before they are attempted.
 
 ## Layout
 

@@ -50,7 +50,8 @@ This is the normalisation obligation for `DMC.power`; it is `Fintype.prod_sum` t
 fact that each row of `W` sums to `1`. -/
 theorem power_sum_eq_one (W : DMC X Y) (n : ℕ) (x : Fin n → X) :
     ∑ y : Fin n → Y, ∏ i, W.transition (x i) (y i) = 1 := by
-  sorry
+  rw [← Fintype.prod_sum]
+  exact Finset.prod_eq_one fun i _ ↦ sum_coe_eq_one (W.transition (x i))
 
 /-- The `n`-fold memoryless extension `Wⁿ` of a DMC `W`: a DMC from length-`n` input blocks to
 length-`n` output blocks whose transition law is the product of the per-symbol transition laws.

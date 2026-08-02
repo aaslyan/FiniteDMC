@@ -42,19 +42,68 @@ variable {X Y : Type*} [Fintype X] [Fintype Y] {n : ℕ}
 
 /-! ### Facts consumed by the converse -/
 
+/-- Each conditional error probability is at most `1`, being a partial sum of the output law. -/
+theorem BlockCode.condError_le_one (c : BlockCode X Y n) (W : DMC X Y) (m : Fin c.card) :
+    c.condError W m ≤ 1 := by
+  rw [BlockCode.condError]
+  calc ∑ y : Fin n → Y, (if c.decode y = m then 0
+          else ((W.power n).transition (c.encode m) y).toReal)
+      ≤ ∑ y : Fin n → Y, ((W.power n).transition (c.encode m) y).toReal := by
+        refine Finset.sum_le_sum fun y _ ↦ ?_
+        split
+        · exact ENNReal.toReal_nonneg
+        · exact le_rfl
+    _ = 1 := sum_toReal_eq_one _
+
 /-- The average error probability is at most `1`. -/
 theorem BlockCode.avgError_le_one (c : BlockCode X Y n) (W : DMC X Y) : c.avgError W ≤ 1 := by
-  sorry
+  have hcard : (0 : ℝ) < c.card := by exact_mod_cast c.card_pos
+  have hsum : ∑ m : Fin c.card, c.condError W m ≤ (c.card : ℝ) := by
+    calc ∑ m : Fin c.card, c.condError W m ≤ ∑ _m : Fin c.card, (1 : ℝ) :=
+          Finset.sum_le_sum fun m _ ↦ c.condError_le_one W m
+      _ = (c.card : ℝ) := by simp
+  calc c.avgError W ≤ (c.card : ℝ)⁻¹ * (c.card : ℝ) :=
+        mul_le_mul_of_nonneg_left hsum (by positivity)
+    _ = 1 := inv_mul_cancel₀ (ne_of_gt hcard)
+
+/-- The average error probability is nonnegative. -/
+theorem BlockCode.avgError_nonneg (c : BlockCode X Y n) (W : DMC X Y) : 0 ≤ c.avgError W := by
+  rw [BlockCode.avgError]
+  refine mul_nonneg (by positivity) (Finset.sum_nonneg fun m _ ↦ ?_)
+  rw [BlockCode.condError]
+  refine Finset.sum_nonneg fun y _ ↦ ?_
+  split
+  · exact le_rfl
+  · exact ENNReal.toReal_nonneg
+
+/-- The rate of a block code is nonnegative, since it has at least one message. -/
+theorem BlockCode.rate_nonneg (c : BlockCode X Y n) : 0 ≤ c.rate := by
+  rw [BlockCode.rate]
+  refine div_nonneg (Real.logb_nonneg one_lt_two ?_) (Nat.cast_nonneg n)
+  exact_mod_cast c.card_pos
 
 /-- The entropy of the uniform message law is `log₂ |M|`. -/
 theorem BlockCode.entropy_messageDist (c : BlockCode X Y n) :
     entropy c.messageDist = Real.logb 2 c.card := by
-  sorry
+  haveI := c.nonempty_fin
+  have hcard : (0 : ℝ) < c.card := by exact_mod_cast c.card_pos
+  rw [entropy]
+  simp only [BlockCode.messageDist, PMF.uniformOfFintype_apply, Fintype.card_fin,
+    ENNReal.toReal_inv, ENNReal.toReal_natCast, Finset.sum_const, Finset.card_univ,
+    nsmul_eq_mul, Real.logb_inv]
+  field_simp
 
 /-- The message marginal of the joint message-output law is the uniform message law. -/
 theorem BlockCode.msgOutJoint_map_fst (c : BlockCode X Y n) (W : DMC X Y) :
     (c.msgOutJoint W).map Prod.fst = c.messageDist := by
-  sorry
+  rw [BlockCode.msgOutJoint, PMF.map_bind]
+  have h : ∀ m : Fin c.card,
+      (((W.power n).transition (c.encode m)).map fun y ↦ (m, y)).map Prod.fst = PMF.pure m := by
+    intro m
+    rw [PMF.map_comp]
+    exact PMF.map_const _ _
+  simp only [h]
+  exact PMF.bind_pure _
 
 /-- **Fano's inequality**, specialised to a block code: the residual uncertainty about the message
 given the channel output is controlled by the average error probability.
@@ -141,6 +190,19 @@ theorem weak_converse_limsup (W : DMC X Y) (codes : ∀ n, BlockCode X Y n)
     (hbdd : BddAbove (Set.range fun n ↦ (codes n).rate))
     (herr : Tendsto (fun n ↦ (codes n).avgError W) atTop (𝓝 0)) :
     limsup (fun n ↦ (codes n).rate) atTop ≤ W.capacity := by
-  sorry
+  obtain ⟨B, hB⟩ := hbdd
+  have hle : ∀ n, (codes n).rate ≤ B := fun n ↦ hB ⟨n, rfl⟩
+  have hcob : IsCoboundedUnder (· ≤ ·) atTop fun n ↦ (codes n).rate :=
+    isCoboundedUnder_le_of_le atTop fun n ↦ (codes n).rate_nonneg
+  have htend : Tendsto (fun n : ℕ ↦ 1 / (n : ℝ) + B * (codes n).avgError W) atTop (𝓝 0) := by
+    have hconst : Tendsto (fun _ : ℕ ↦ B) atTop (𝓝 B) := tendsto_const_nhds
+    have h2 : Tendsto (fun n : ℕ ↦ B * (codes n).avgError W) atTop (𝓝 0) := by
+      simpa using hconst.mul herr
+    simpa using tendsto_one_div_atTop_nhds_zero_nat.add h2
+  refine le_of_forall_pos_le_add fun ε hε ↦ limsup_le_of_le hcob ?_
+  filter_upwards [eventually_gt_atTop 0, htend.eventually (gt_mem_nhds hε)] with n hn hlt
+  have hbase := (codes n).rate_mul_one_sub_avgError_le W hn
+  have hpe := (codes n).avgError_nonneg W
+  nlinarith [mul_le_mul_of_nonneg_right (hle n) hpe]
 
 end FiniteDMC
