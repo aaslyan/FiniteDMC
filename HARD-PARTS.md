@@ -204,13 +204,21 @@ right-hand side is `0`.
 inequality — the event is `2 ^ τ * P_Yⁿ(y) < Wⁿ(y ∣ x)` — with no logarithm
 anywhere. That form is junk-free and is what the decoder should threshold on.
 
-**What is still open.** `spectrumTail` is phrased via the log-sum information
-density, because that is the form the weak law needs. The decoder's event is the
-mass inequality. The two coincide under the joint law but not in general, so
-`exists_blockCode_avgError_le` needs a bridging lemma — or `spectrumTail` should
-be restated in mass form and the weak law's proof rerouted through the bridge.
-**This is a definitional question and should be decided before S10a is attempted**,
-not during it.
+**Resolved: the bridging lemma.** `spectrumTail` keeps its log-sum phrasing, so
+the weak law is untouched, and three lemmas connect it to the decoder's mass
+form:
+
+- `DMC.outputPow_apply` — the output of a memoryless channel under an i.i.d.
+  input is itself i.i.d.
+- `infoDensityPow_eq_logb` — **on the support of the joint law**, the `n`-letter
+  information density really is `log₂` of the likelihood ratio. This is where the
+  junk value is quarantined: the hypothesis is exactly that the joint puts
+  positive mass on the pair.
+- `sum_ite_le_spectrumTail` — hence the joint probability that the *true*
+  codeword fails the mass test is at most `spectrumTail`.
+
+So the decoder thresholds on masses, the weak law controls logs, and the two
+meet only where the joint charges — which is the only place they agree.
 
 ### A statement-level caution
 

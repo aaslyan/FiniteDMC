@@ -356,6 +356,91 @@ theorem sum_ite_lt_le_rpow_neg (W : DMC X Y) (p : PMF X) (n : ℕ) (τ : ℝ) :
     _ = (2 : ℝ) ^ (-τ) * 1 := by rw [← Finset.mul_sum, hjoint]
     _ = (2 : ℝ) ^ (-τ) := mul_one _
 
+/-- **The output of a memoryless channel under an i.i.d. input is i.i.d.** -/
+theorem DMC.outputPow_apply (W : DMC X Y) (p : PMF X) (n : ℕ) (y : Fin n → Y) :
+    (W.outputPow p n) y = ∏ i, (p.bind W.transition) (y i) := by
+  classical
+  rw [DMC.outputPow, PMF.bind_apply, tsum_fintype]
+  have h1 : ∀ x : Fin n → X, (PMF.pi fun _ : Fin n ↦ p) x * (W.power n).transition x y
+      = ∏ i, (p (x i) * W.transition (x i) (y i)) := by
+    intro x
+    rw [PMF.pi_apply, DMC.power_transition_apply, ← Finset.prod_mul_distrib]
+  rw [Finset.sum_congr rfl fun x _ ↦ h1 x,
+    ← Fintype.prod_sum fun (i : Fin n) (a : X) ↦ p a * W.transition a (y i)]
+  exact Finset.prod_congr rfl fun i _ ↦ by rw [PMF.bind_apply, tsum_fintype]
+
+/-- On the support of the joint law, the `n`-letter information density really is the logarithm of
+the likelihood ratio.  This is the bridge between the log-sum form, which the weak law needs, and
+the mass form, which the decoder needs. -/
+theorem infoDensityPow_eq_logb (W : DMC X Y) (p : PMF X) (n : ℕ)
+    {x : Fin n → X} {y : Fin n → Y} (h : W.jointPow p n (x, y) ≠ 0) :
+    W.infoDensityPow p n x y
+      = Real.logb 2 (((W.power n).transition x y).toReal / ((W.outputPow p n) y).toReal) := by
+  classical
+  have hmul : (PMF.pi fun _ : Fin n ↦ p) x * (W.power n).transition x y ≠ 0 := by
+    rw [DMC.jointPow, DMC.joint_apply] at h; exact h
+  have hpx : (PMF.pi fun _ : Fin n ↦ p) x ≠ 0 := fun hz ↦ hmul (by rw [hz, zero_mul])
+  have hWy : (W.power n).transition x y ≠ 0 := fun hz ↦ hmul (by rw [hz, mul_zero])
+  have hp : ∀ i, p (x i) ≠ 0 := fun i hz ↦ hpx (by
+    rw [PMF.pi_apply]; exact Finset.prod_eq_zero (Finset.mem_univ i) hz)
+  have hW : ∀ i, W.transition (x i) (y i) ≠ 0 := fun i hz ↦ hWy (by
+    rw [DMC.power_transition_apply]; exact Finset.prod_eq_zero (Finset.mem_univ i) hz)
+  have hc : ∀ i, (0 : ℝ) < ((p.bind W.transition) (y i)).toReal := by
+    intro i
+    refine ENNReal.toReal_pos ?_ ((p.bind W.transition).apply_ne_top _)
+    intro hz
+    have hle := DMC.le_outputDist W p (x i) (y i)
+    rw [hz, le_zero_iff, mul_eq_zero] at hle
+    exact hle.elim (hp i) (hW i)
+  have ha : ∀ i, (0 : ℝ) < (W.transition (x i) (y i)).toReal :=
+    fun i ↦ ENNReal.toReal_pos (hW i) ((W.transition (x i)).apply_ne_top _)
+  rw [DMC.outputPow_apply, DMC.power_transition_apply, ENNReal.toReal_prod, ENNReal.toReal_prod,
+    ← Finset.prod_div_distrib, logb_prod_of_pos _ _ fun i _ ↦ div_pos (ha i) (hc i),
+    DMC.infoDensityPow]
+  rfl
+
+/-- The decoder's mass-form failure event has joint probability at most the spectrum tail. -/
+theorem sum_ite_le_spectrumTail (W : DMC X Y) (p : PMF X) (n : ℕ) (τ : ℝ) :
+    ∑ z : (Fin n → X) × (Fin n → Y),
+      (if ((W.power n).transition z.1 z.2).toReal
+            ≤ (2 : ℝ) ^ τ * ((W.outputPow p n) z.2).toReal
+        then (W.jointPow p n z).toReal else 0)
+      ≤ W.spectrumTail p n τ := by
+  classical
+  rw [DMC.spectrumTail]
+  refine Finset.sum_le_sum fun z _ ↦ ?_
+  obtain ⟨x, y⟩ := z
+  by_cases hz : W.jointPow p n (x, y) = 0
+  · simp [hz]
+  · have hWpos : (0 : ℝ) < ((W.power n).transition x y).toReal := by
+      refine ENNReal.toReal_pos ?_ (((W.power n).transition x).apply_ne_top _)
+      intro h0
+      exact hz (by rw [DMC.jointPow, DMC.joint_apply, h0, mul_zero])
+    have hout : (0 : ℝ) < ((W.outputPow p n) y).toReal := by
+      refine ENNReal.toReal_pos ?_ ((W.outputPow p n).apply_ne_top _)
+      intro h0
+      apply hz
+      rw [DMC.jointPow, DMC.joint_apply]
+      rw [DMC.outputPow, PMF.bind_apply, tsum_fintype] at h0
+      have := Finset.sum_eq_zero_iff.1 h0 x (Finset.mem_univ x)
+      exact this
+    dsimp only
+    split
+    · next hle =>
+      have hi : W.infoDensityPow p n x y ≤ τ := by
+        rw [infoDensityPow_eq_logb W p n hz]
+        have hdiv : ((W.power n).transition x y).toReal / ((W.outputPow p n) y).toReal
+            ≤ (2 : ℝ) ^ τ := by
+          rw [div_le_iff₀ hout]; linarith
+        calc Real.logb 2 (((W.power n).transition x y).toReal / ((W.outputPow p n) y).toReal)
+            ≤ Real.logb 2 ((2 : ℝ) ^ τ) :=
+              Real.logb_le_logb_of_le (by norm_num) (div_pos hWpos hout) hdiv
+          _ = τ := Real.logb_rpow (by norm_num) (by norm_num)
+      rw [if_pos hi]
+    · split
+      · exact ENNReal.toReal_nonneg
+      · exact le_rfl
+
 /-- **The random-coding bound.**  For any threshold `τ` there is a code with `M` messages whose
 average error is at most the information-spectrum tail plus the union-bound term.
 
@@ -364,10 +449,10 @@ thresholding the likelihood ratio, bound the ensemble-average error by
 `sum_ite_lt_le_rpow_neg` together with the spectrum tail, and then extract a single good codebook
 with `exists_le_of_sum_toReal_mul_le`.  No usable encoder comes out of that argument (D-12).
 
-Before it is attempted, the mismatch documented on `DMC.infoDensity` must be settled: the
-threshold event has to be the mass inequality `2 ^ τ * P_Yⁿ(y) < Wⁿ(y ∣ x)`, and `spectrumTail`
-is currently phrased via the log-sum information density.  The two agree under the joint law but
-not under a product of marginals. -/
+The junk-value mismatch documented on `DMC.infoDensity` is settled by `sum_ite_le_spectrumTail`:
+the decoder thresholds on the mass inequality `2 ^ τ * P_Yⁿ(y) < Wⁿ(y ∣ x)`, and the joint
+probability that the *true* codeword fails that test is bounded by `spectrumTail`, which is what
+the weak law controls.  `spectrumTail` itself keeps its log-sum phrasing. -/
 theorem exists_blockCode_avgError_le (W : DMC X Y) (p : PMF X) (n : ℕ) {M : ℕ} (hM : 0 < M)
     (τ : ℝ) : ∃ c : BlockCode X Y n, c.card = M ∧
       c.avgError W ≤ W.spectrumTail p n τ + M * (2 : ℝ) ^ (-τ) := by

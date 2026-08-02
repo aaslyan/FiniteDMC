@@ -130,16 +130,17 @@ proved — `PMF.pi`, `exists_le_of_sum_toReal_mul_le`, `DMC.sum_joint_infoDensit
 the spectrum machinery, and now the change-of-measure step
 `sum_ite_lt_le_rpow_neg`.
 
-**It is blocked on a definitional decision, not on effort.** Setting up the
-decoder exposed a junk-value defect in `DMC.infoDensity`: `Real.logb` sends `0`
-to `0`, so a pair with `W(y ∣ x) = 0` gets information density `0` where the
-theory needs `-∞`. Harmless under the joint law (no mass there), and every
-existing use is under the joint — but the union-bound term sums against a
-*product of marginals*, where it breaks the change-of-measure bound. The proved
-change-of-measure lemma therefore avoids logarithms entirely and thresholds on
-the mass inequality `2 ^ τ * P_Yⁿ(y) < Wⁿ(y ∣ x)`. Reconciling that with
-`spectrumTail`'s log-sum phrasing is the decision to take first; see
+A junk-value defect in `DMC.infoDensity` surfaced while setting up the decoder —
+`Real.logb` sends `0` to `0`, where the theory needs `-∞` — and has been
+**quarantined rather than papered over**. The decoder thresholds on the mass
+inequality `2 ^ τ * P_Yⁿ(y) < Wⁿ(y ∣ x)`, with no logarithm; `spectrumTail`
+keeps its log-sum phrasing, so the weak law is untouched; and
+`infoDensityPow_eq_logb` connects them **only under the hypothesis that the joint
+charges the pair**, which is exactly where the two agree. See
 [`HARD-PARTS.md`](HARD-PARTS.md).
+
+What remains is the ensemble argument itself: draw the codebook, take the union
+bound, and extract a good realisation.
 
 ### Discharged
 
