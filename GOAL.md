@@ -1,21 +1,24 @@
 # GOAL — finite DMC coding theorem
 
-Review artifact. **No convention below is settled** — each is a draft for the
-information-theory collaborator to accept, amend, or reject. Ten of the eleven
-obligations have since been proved; the conventions they were built on are
-still open, and revising one now costs the work that rests on it (D-5 in
-particular).
+**The coding theorem is proved.** Both directions, no `sorry` anywhere, only the
+three standard Mathlib axioms.
+
+The conventions below are still *drafts* in the sense that nobody has signed off
+on them — but they are now load-bearing for a complete proof, so revising one
+costs real work. They remain the thing to review.
 
 - **Scope:** the coding theorem for **finite discrete memoryless channels** —
   finite alphabets, average block-error probability, achievability strictly
   below capacity, weak converse above it. Not general/continuous channels, not
   Shannon–Hartley, not zero-error capacity, not the strong converse.
-- **State:** `lake build` succeeds. **1** `sorry` remains in the whole
-  repository: `exists_blockCode_avgError_le`, the random-coding bound itself.
-- **The weak converse is now an actual theorem** — `#print axioms` shows only
-  `propext`, `Classical.choice`, `Quot.sound`, with no `sorryAx`. Both its
-  `R`-form and its `limsup`-form, and the one-shot Fano bound, are unconditional.
-  Achievability still rests on S10.
+- **State:** `lake build` succeeds with **no `sorry` and no warnings**.
+
+  ```
+  'FiniteDMC.coding_achievability' : [propext, Classical.choice, Quot.sound]
+  'FiniteDMC.weak_converse'        : [propext, Classical.choice, Quot.sound]
+  'FiniteDMC.weak_converse_limsup' : [propext, Classical.choice, Quot.sound]
+  ```
+
 - **Toolchain:** Lean 4.32.2, Mathlib v4.32.2.
 
 ---
@@ -105,126 +108,36 @@ D-10 as a correction). These are the ones to reject first if you disagree.
 
 ---
 
-## 3. The `sorry` list
+## 3. The obligation list — all discharged
 
-**1 open.** Classification uses the brief's categories. Note which
-categories came out **empty** — that is itself a result:
+All eleven obligations the first session's proof attempt generated are proved,
+plus the two that the last of them split into. Note which categories came out
+**empty** — that is itself a result:
 
-- **Definition:** none. Every definition is concrete, so no `sorry` can hide a
+- **Definition:** none. Every definition is concrete, so no `sorry` ever hid a
   definitional choice from review.
-- **Construction:** none. `DMC.power` is a real construction; only its
-  normalisation obligation is deferred (S1).
-- **Algorithm:** none, by design (D-12).
-- **Measurement / External fact:** none. Everything below is intended to be
-  proved in-repo, not imported from the literature.
-
-### Still open
-
-| id | name | class | type |
-|----|------|-------|------|
-| **S10a** | `exists_blockCode_avgError_le` | Theorem | `0 < M → ∀ τ, ∃ c : BlockCode X Y n, c.card = M ∧ c.avgError W ≤ W.spectrumTail p n τ + M * (2:ℝ) ^ (-τ)` |
-
-This is the random-coding argument itself: the i.i.d. codebook ensemble,
-threshold decoding, the union bound, and the pigeonhole. Its ingredients are
-proved — `PMF.pi`, `exists_le_of_sum_toReal_mul_le`, `DMC.sum_joint_infoDensity`,
-the spectrum machinery, and now the change-of-measure step
-`sum_ite_lt_le_rpow_neg`.
-
-A junk-value defect in `DMC.infoDensity` surfaced while setting up the decoder —
-`Real.logb` sends `0` to `0`, where the theory needs `-∞` — and has been
-**quarantined rather than papered over**. The decoder thresholds on the mass
-inequality `2 ^ τ * P_Yⁿ(y) < Wⁿ(y ∣ x)`, with no logarithm; `spectrumTail`
-keeps its log-sum phrasing, so the weak law is untouched; and
-`infoDensityPow_eq_logb` connects them **only under the hypothesis that the joint
-charges the pair**, which is exactly where the two agree. See
-[`HARD-PARTS.md`](HARD-PARTS.md).
-
-What remains is the ensemble argument itself: draw the codebook, take the union
-bound, and extract a good realisation.
-
-### Discharged
+- **Construction:** none deferred.
+- **Algorithm:** none, by design (D-12). The final step of achievability
+  exhibits a codebook at least as good as the ensemble average and gives no way
+  to find one.
+- **Measurement / External fact:** none. Nothing was imported from the
+  literature unproved.
 
 | id | name | note |
 |----|------|------|
-| **S1** | `power_sum_eq_one` | `Fintype.prod_sum` plus row normalisation |
-| **S2** | `bddAbove_range_mutualInfo` | `I ≤ H(Y) ≤ log₂ |Y|`, via the normal form and max-entropy |
-| **S3** | `BlockCode.avgError_le_one` | via a new `condError_le_one` |
-| **S4** | `BlockCode.entropy_messageDist` | entropy of the uniform law is `log₂ |M|` |
-| **S5** | `BlockCode.msgOutJoint_map_fst` | now just `DMC.joint_map_fst` |
-| **S6** | `BlockCode.le_rate_of_rpow_le_card` | `Real.logb_rpow` + monotonicity |
-| **S7** | `BlockCode.fano_inequality` | Gibbs against an explicit reference weight |
-| **S8** | `BlockCode.mutualInfo_msgOutJoint_le` | turned out to be an **equality** |
-| **S9** | `DMC.mutualInfo_power_le` | single-letterisation; ~200 lines, no new ideas |
-| **S10** | `exists_blockCode_of_lt_mutualInfo` | *assembly* — proved from S10a and S10b, including the ceiling bookkeeping and the degenerate `R ≤ 0` case |
-| **S10b** | `tendsto_spectrumTail` | the weak law, by a bespoke finite-alphabet Chebyshev bound |
-| **S11** | `weak_converse_limsup` | needed `IsCoboundedUnder`, hence `rate_nonneg` |
-
-### The entropy toolkit that came out of it
-
-Mathlib has no discrete Shannon entropy, so S2/S7/S8 forced one into existence in
-`FiniteDMC/EntropyBounds.lean`. It rests on a single analytic fact,
-`Real.log_le_sub_one_of_pos` — **no Jensen, no convexity machinery**:
-
-- `entropy_nonneg`, `toReal_apply_le_one`
-- `entropy_le_neg_sum_mul_logb` — Gibbs against an arbitrary *sub-probability
-  weight* (`w ≥ 0`, `∑ w ≤ 1`), not just a `PMF`
-- `entropy_le_crossEntropy`, `entropy_le_logb_card`
-- `entropy_le_sum_entropy_proj` — subadditivity across coordinates
-- and in `Channel.lean`: `DMC.entropy_joint` (chain rule), `DMC.mutualInfo_eq`
-  (the normal form `I = H(Y) − ∑ₓ p x · H(W(·∣x))`), `entropy_power_transition`
-  (entropy of a product law) and `power_bind_map_proj` (coordinate marginals)
-
-Three findings worth review:
-
-1. **S8 is an equality, not an inequality.** A code's message-to-output link is
-   `DMC.joint` of an induced `codeChannel`, and change of variables along the
-   encoder identifies the two mutual informations exactly. The data-processing
-   *inequality* is never needed here.
-2. **Fano needs no case split on `|M| = 1`.** Stating Gibbs for a sub-probability
-   weight rather than a `PMF` absorbs the degenerate case: the reference weight
-   has mass `1` when `|M| ≥ 2` and `1/2` when `|M| = 1`, and the bound is
-   indifferent to which.
-3. **S9 needed no new ideas, only volume** — about 200 lines, and the single
-   reusable workhorse is `sum_prod_mul`: summing a product weight against a
-   function of one coordinate collapses to that coordinate's factor. Stated over
-   an arbitrary `CommSemiring`, it serves both the real entropy computation and
-   the `ℝ≥0∞` marginal computation.
-4. **`DMC.joint` is now an explicit mass function** (`PMF.ofFintype`) rather than
-   a `bind`, matching `DMC.power`, so `DMC.joint_apply` holds by `rfl`. Same
-   measure — purely proof engineering, but it is what makes the entropy
-   computations calculational rather than monadic.
-
-### The random-coding layer
-
-`FiniteDMC/RandomCoding.lean` adds three proved pieces that no route can avoid:
-
-- `PMF.pi` — the product of a finite family of `PMF`s. Mathlib has none; this is
-  needed for the i.i.d. input law and the codebook ensemble, and is plausibly
-  upstreamable.
-- `exists_le_of_sum_toReal_mul_le` — *some realisation is at least as good as the
-  average*. This is precisely the step that makes random coding
-  non-constructive, and it is now isolated and proved (D-12).
-- `DMC.sum_joint_infoDensity` — the mean of the information density **is** the
-  mutual information. This is the bridge between D-5's inclusion–exclusion
-  definition and the quantity the achievability argument concentrates; without
-  it the chosen route would not connect to the rest of the development.
-
-### The weak law, without measure theory
-
-`HARD-PARTS.md` posed this as an open question: get the law of large numbers
-either by bridging to Mathlib's measure-theoretic version, or by writing a
-bespoke finite-alphabet Chebyshev bound and keeping D-11 (no measure theory)
-intact. **The second worked**, and it was not expensive:
-
-- `sum_prod_mul_prod` / `sum_prod_mul_two` — distinct coordinates of a product
-  law decouple. Both fall straight out of `Fintype.prod_sum`; the two-coordinate
-  case needs no erasing argument, only `Finset.prod_ite_eq'`.
-- `sum_prod_sq` — the variance of an i.i.d. sum is `n` times the variance, by
-  expanding the square and splitting diagonal from off-diagonal terms.
-- `spectrumTail_le` — Chebyshev.
-
-So **D-11 survives**: nothing in the development touches `PMF.toMeasure`, and
-the decision to stay with `Finset` sums on finite types held all the way through.
+| S1 | `power_sum_eq_one` | `Fintype.prod_sum` plus row normalisation |
+| S2 | `bddAbove_range_mutualInfo` | `I ≤ H(Y) ≤ log₂ |Y|`, via the normal form |
+| S3 | `BlockCode.avgError_le_one` | via `condError_le_one` |
+| S4 | `BlockCode.entropy_messageDist` | entropy of the uniform law |
+| S5 | `BlockCode.msgOutJoint_map_fst` | reduced to `DMC.joint_map_fst` |
+| S6 | `BlockCode.le_rate_of_rpow_le_card` | `Real.logb_rpow` + monotonicity |
+| S7 | `BlockCode.fano_inequality` | Gibbs against an explicit reference weight |
+| S8 | `BlockCode.mutualInfo_msgOutJoint_le` | turned out to be an **equality** |
+| S9 | `DMC.mutualInfo_power_le` | single-letterisation; ~200 lines, no new ideas |
+| S10 | `exists_blockCode_of_lt_mutualInfo` | assembly, incl. ceiling bookkeeping and `R ≤ 0` |
+| S10a | `exists_blockCode_avgError_le` | the random-coding bound |
+| S10b | `tendsto_spectrumTail` | the weak law, by bespoke Chebyshev |
+| S11 | `weak_converse_limsup` | needed `IsCoboundedUnder`, hence `rate_nonneg` |
 
 ### The connecting arguments (no `sorry`)
 

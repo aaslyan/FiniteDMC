@@ -11,13 +11,19 @@ repository unless a separate, later decision says otherwise.
 
 ## Status
 
-`lake build` succeeds. **The weak converse is proved** — unconditionally, with no
-`sorry` anywhere beneath it, in both its `R`-form and its `limsup`-form.
+**The coding theorem is proved**, in both directions. `lake build` succeeds with
+no `sorry` and no warnings, and both top-level theorems depend only on the three
+standard Mathlib axioms:
 
-**One** `sorry` remains in the whole repository: the random-coding bound itself
-(`exists_blockCode_avgError_le`). Everything it needs is in place, including the
-weak law of large numbers, proved by a bespoke finite-alphabet Chebyshev bound
-rather than by bridging to measure theory.
+```
+'FiniteDMC.coding_achievability' : [propext, Classical.choice, Quot.sound]
+'FiniteDMC.weak_converse'        : [propext, Classical.choice, Quot.sound]
+```
+
+Notably, the development needs **no measure theory** — everything is `Finset`
+sums over finite types, including the law of large numbers. Mathlib has no
+discrete Shannon entropy, so that layer is built here from `Real.log_le_sub_one_of_pos`
+alone, with no appeal to Jensen or convexity.
 
 **No convention is settled.** See [`GOAL.md`](GOAL.md) for the statements, the
 draft convention choices, and the `sorry` list; and

@@ -441,22 +441,285 @@ theorem sum_ite_le_spectrumTail (W : DMC X Y) (p : PMF X) (n : ℕ) (τ : ℝ) :
       · exact ENNReal.toReal_nonneg
       · exact le_rfl
 
+/-- The codeword indices whose likelihood ratio passes the threshold `2 ^ τ`. -/
+noncomputable def passSet (W : DMC X Y) (p : PMF X) {n M : ℕ} (cb : Fin M → Fin n → X) (τ : ℝ)
+    (y : Fin n → Y) : Finset (Fin M) :=
+  Finset.univ.filter fun m ↦
+    (2 : ℝ) ^ τ * ((W.outputPow p n) y).toReal < ((W.power n).transition (cb m) y).toReal
+
+/-- Threshold decoding: return the least index that passes, and message `0` if none does.
+Both the tie-break and the failure output are arbitrary; neither affects the error bound. -/
+noncomputable def thresholdDecode (W : DMC X Y) (p : PMF X) {n M : ℕ} (hM : 0 < M)
+    (cb : Fin M → Fin n → X) (τ : ℝ) (y : Fin n → Y) : Fin M :=
+  if h : (passSet W p cb τ y).Nonempty then (passSet W p cb τ y).min' h else ⟨0, hM⟩
+
+/-- The block code obtained from a codebook by threshold decoding. -/
+noncomputable def randomCode (W : DMC X Y) (p : PMF X) {n M : ℕ} (hM : 0 < M)
+    (cb : Fin M → Fin n → X) (τ : ℝ) : BlockCode X Y n where
+  card := M
+  card_pos := hM
+  encode := cb
+  decode := thresholdDecode W p hM cb τ
+
+@[simp]
+theorem randomCode_card (W : DMC X Y) (p : PMF X) {n M : ℕ} (hM : 0 < M)
+    (cb : Fin M → Fin n → X) (τ : ℝ) : (randomCode W p hM cb τ).card = M := rfl
+
+@[simp]
+theorem randomCode_encode (W : DMC X Y) (p : PMF X) {n M : ℕ} (hM : 0 < M)
+    (cb : Fin M → Fin n → X) (τ : ℝ) : (randomCode W p hM cb τ).encode = cb := rfl
+
+@[simp]
+theorem randomCode_decode (W : DMC X Y) (p : PMF X) {n M : ℕ} (hM : 0 < M)
+    (cb : Fin M → Fin n → X) (τ : ℝ) :
+    (randomCode W p hM cb τ).decode = thresholdDecode W p hM cb τ := rfl
+
+/-- **Union bound**, per message: a decoding error means either the true codeword failed the
+threshold, or some other codeword passed it. -/
+theorem condError_randomCode_le (W : DMC X Y) (p : PMF X) {n M : ℕ} (hM : 0 < M)
+    (cb : Fin M → Fin n → X) (τ : ℝ) (m : Fin M) :
+    (randomCode W p hM cb τ).condError W m
+      ≤ (∑ y : Fin n → Y, if m ∈ passSet W p cb τ y then 0
+          else ((W.power n).transition (cb m) y).toReal)
+        + ∑ m' ∈ Finset.univ.erase m, ∑ y : Fin n → Y,
+            (if m' ∈ passSet W p cb τ y then
+              ((W.power n).transition (cb m) y).toReal else 0) := by
+  classical
+  rw [BlockCode.condError, Finset.sum_comm, ← Finset.sum_add_distrib]
+  simp only [randomCode_encode, randomCode_decode]
+  refine Finset.sum_le_sum fun y _ ↦ ?_
+  have hA : (0 : ℝ) ≤ ((W.power n).transition (cb m) y).toReal := ENNReal.toReal_nonneg
+  have hrest : (0 : ℝ) ≤ ∑ m' ∈ Finset.univ.erase m,
+      (if m' ∈ passSet W p cb τ y then ((W.power n).transition (cb m) y).toReal else 0) :=
+    Finset.sum_nonneg fun _ _ ↦ by split <;> [exact hA; exact le_rfl]
+  split_ifs with hdec hmem hmem
+  · linarith
+  · linarith
+  · rw [zero_add]
+    have hne : (passSet W p cb τ y).Nonempty := ⟨m, hmem⟩
+    have hval : thresholdDecode W p hM cb τ y = (passSet W p cb τ y).min' hne := by
+      rw [thresholdDecode, dif_pos hne]
+    have hmin : (passSet W p cb τ y).min' hne ∈ passSet W p cb τ y := Finset.min'_mem _ _
+    have hnem : (passSet W p cb τ y).min' hne ≠ m := hval ▸ hdec
+    calc ((W.power n).transition (cb m) y).toReal
+        = (if (passSet W p cb τ y).min' hne ∈ passSet W p cb τ y then
+            ((W.power n).transition (cb m) y).toReal else 0) := by rw [if_pos hmin]
+      _ ≤ ∑ m' ∈ Finset.univ.erase m,
+            (if m' ∈ passSet W p cb τ y then
+              ((W.power n).transition (cb m) y).toReal else 0) :=
+          Finset.single_le_sum
+            (f := fun m' ↦ if m' ∈ passSet W p cb τ y then
+              ((W.power n).transition (cb m) y).toReal else 0)
+            (fun i _ ↦ by split <;> [exact hA; exact le_rfl])
+            (Finset.mem_erase.2 ⟨hnem, Finset.mem_univ _⟩)
+  · linarith
+
+theorem ens_toReal {Z : Type*} [Fintype Z] (q : PMF Z) (M : ℕ) (cb : Fin M → Z) :
+    ((PMF.pi fun _ : Fin M ↦ q) cb).toReal = ∏ k, (q (cb k)).toReal := by
+  rw [PMF.pi_apply, ENNReal.toReal_prod]
+
+theorem mem_passSet_iff (W : DMC X Y) (p : PMF X) {n M : ℕ} (cb : Fin M → Fin n → X) (τ : ℝ)
+    (y : Fin n → Y) (m : Fin M) : m ∈ passSet W p cb τ y ↔
+      (2 : ℝ) ^ τ * ((W.outputPow p n) y).toReal < ((W.power n).transition (cb m) y).toReal := by
+  rw [passSet, Finset.mem_filter]
+  exact ⟨fun h ↦ h.2, fun h ↦ ⟨Finset.mem_univ m, h⟩⟩
+
+/-- Ensemble average of the "true codeword failed the threshold" term. -/
+theorem ens_term_one_le (W : DMC X Y) (p : PMF X) (n : ℕ) {M : ℕ} (τ : ℝ) (m : Fin M) :
+    ∑ cb : Fin M → Fin n → X,
+        ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+        * (∑ y : Fin n → Y, if m ∈ passSet W p cb τ y then 0
+            else ((W.power n).transition (cb m) y).toReal)
+      ≤ W.spectrumTail p n τ := by
+  classical
+  simp only [mem_passSet_iff]
+  have hq : ∀ _k : Fin M, ∑ x : Fin n → X, ((PMF.pi fun _ : Fin n ↦ p) x).toReal = 1 :=
+    fun _ ↦ sum_toReal_eq_one _
+  have hstep : ∀ cb : Fin M → Fin n → X,
+      ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+      = ∏ k, ((PMF.pi fun _ : Fin n ↦ p) (cb k)).toReal := fun cb ↦ ens_toReal _ _ _
+  rw [Finset.sum_congr rfl fun cb _ ↦ by rw [hstep cb],
+    sum_prod_mul (fun (_ : Fin M) (x : Fin n → X) ↦ ((PMF.pi fun _ : Fin n ↦ p) x).toReal) hq m
+      fun x ↦ ∑ y : Fin n → Y, if (2 : ℝ) ^ τ * ((W.outputPow p n) y).toReal
+        < ((W.power n).transition x y).toReal then 0
+        else ((W.power n).transition x y).toReal]
+  · refine le_trans (le_of_eq ?_) (sum_ite_le_spectrumTail W p n τ)
+    rw [Fintype.sum_prod_type]
+    refine Finset.sum_congr rfl fun x _ ↦ ?_
+    rw [Finset.mul_sum]
+    refine Finset.sum_congr rfl fun y _ ↦ ?_
+    rw [W.jointPow_toReal p n (x, y)]
+    dsimp only
+    split_ifs with h1 h2 h2
+    · exact absurd h1 (not_lt.2 h2)
+    · ring
+    · ring
+    · exact absurd (not_lt.1 h1) h2
+
+/-- Ensemble average of a "wrong codeword passed the threshold" term. -/
+theorem ens_term_two_le (W : DMC X Y) (p : PMF X) (n : ℕ) {M : ℕ} (τ : ℝ) {m m' : Fin M}
+    (hne : m' ≠ m) :
+    ∑ cb : Fin M → Fin n → X,
+        ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+        * (∑ y : Fin n → Y, if m' ∈ passSet W p cb τ y then
+            ((W.power n).transition (cb m) y).toReal else 0)
+      ≤ (2 : ℝ) ^ (-τ) := by
+  classical
+  have hq : ∀ _k : Fin M, ∑ x : Fin n → X, ((PMF.pi fun _ : Fin n ↦ p) x).toReal = 1 :=
+    fun _ ↦ sum_toReal_eq_one _
+  have hout : ∀ y : Fin n → Y, ∑ x : Fin n → X,
+      ((PMF.pi fun _ : Fin n ↦ p) x).toReal * ((W.power n).transition x y).toReal
+      = ((W.outputPow p n) y).toReal := by
+    intro y
+    rw [DMC.outputPow, PMF.bind_apply, tsum_fintype,
+      ENNReal.toReal_sum fun x _ ↦ ENNReal.mul_ne_top ((PMF.pi _).apply_ne_top x)
+        (((W.power n).transition x).apply_ne_top y)]
+    exact (Finset.sum_congr rfl fun x _ ↦ ENNReal.toReal_mul).symm
+  have hswap : ∀ cb : Fin M → Fin n → X,
+      ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+        * (∑ y : Fin n → Y, if m' ∈ passSet W p cb τ y then
+            ((W.power n).transition (cb m) y).toReal else 0)
+      = ∑ y : Fin n → Y, (∏ k, ((PMF.pi fun _ : Fin n ↦ p) (cb k)).toReal)
+          * ((if (2 : ℝ) ^ τ * ((W.outputPow p n) y).toReal
+                < ((W.power n).transition (cb m') y).toReal then (1 : ℝ) else 0)
+            * ((W.power n).transition (cb m) y).toReal) := by
+    intro cb
+    rw [ens_toReal, Finset.mul_sum]
+    refine Finset.sum_congr rfl fun y _ ↦ ?_
+    simp only [mem_passSet_iff]
+    split_ifs <;> ring
+  rw [Finset.sum_congr rfl fun cb _ ↦ hswap cb, Finset.sum_comm]
+  have hinner : ∀ y : Fin n → Y,
+      ∑ cb : Fin M → Fin n → X, (∏ k, ((PMF.pi fun _ : Fin n ↦ p) (cb k)).toReal)
+        * ((if (2 : ℝ) ^ τ * ((W.outputPow p n) y).toReal
+              < ((W.power n).transition (cb m') y).toReal then (1 : ℝ) else 0)
+          * ((W.power n).transition (cb m) y).toReal)
+      = (∑ x' : Fin n → X, ((PMF.pi fun _ : Fin n ↦ p) x').toReal
+          * (if (2 : ℝ) ^ τ * ((W.outputPow p n) y).toReal
+              < ((W.power n).transition x' y).toReal then (1 : ℝ) else 0))
+        * ((W.outputPow p n) y).toReal := by
+    intro y
+    rw [sum_prod_mul_two (fun (_ : Fin M) (x : Fin n → X) ↦
+        ((PMF.pi fun _ : Fin n ↦ p) x).toReal) hq hne
+      (fun x' ↦ if (2 : ℝ) ^ τ * ((W.outputPow p n) y).toReal
+        < ((W.power n).transition x' y).toReal then (1 : ℝ) else 0)
+      fun x ↦ ((W.power n).transition x y).toReal, hout y]
+  rw [Finset.sum_congr rfl fun y _ ↦ hinner y]
+  refine le_trans (le_of_eq ?_) (sum_ite_lt_le_rpow_neg W p n τ)
+  rw [Fintype.sum_prod_type, Finset.sum_comm]
+  refine Finset.sum_congr rfl fun y _ ↦ ?_
+  rw [Finset.sum_mul]
+  refine Finset.sum_congr rfl fun x _ ↦ ?_
+  split_ifs <;> ring
+
 /-- **The random-coding bound.**  For any threshold `τ` there is a code with `M` messages whose
 average error is at most the information-spectrum tail plus the union-bound term.
 
-Its intended proof: draw the codebook from the i.i.d. ensemble `PMF.pi (fun _ ↦ pⁿ)`, decode by
-thresholding the likelihood ratio, bound the ensemble-average error by
-`sum_ite_lt_le_rpow_neg` together with the spectrum tail, and then extract a single good codebook
-with `exists_le_of_sum_toReal_mul_le`.  No usable encoder comes out of that argument (D-12).
+The codebook is drawn from the i.i.d. ensemble and decoded by thresholding the likelihood ratio.
+A decoding error means either the true codeword failed the threshold — bounded by
+`sum_ite_le_spectrumTail` — or some other codeword passed it, bounded by
+`sum_ite_lt_le_rpow_neg` once the two codewords decouple.  A single good codebook is then
+extracted with `exists_le_of_sum_toReal_mul_le`.
 
-The junk-value mismatch documented on `DMC.infoDensity` is settled by `sum_ite_le_spectrumTail`:
-the decoder thresholds on the mass inequality `2 ^ τ * P_Yⁿ(y) < Wⁿ(y ∣ x)`, and the joint
-probability that the *true* codeword fails that test is bounded by `spectrumTail`, which is what
-the weak law controls.  `spectrumTail` itself keeps its log-sum phrasing. -/
+**No usable encoder comes out of this.**  The last step exhibits a codebook at least as good as
+the ensemble average; it gives no way to find one (D-12). -/
 theorem exists_blockCode_avgError_le (W : DMC X Y) (p : PMF X) (n : ℕ) {M : ℕ} (hM : 0 < M)
     (τ : ℝ) : ∃ c : BlockCode X Y n, c.card = M ∧
       c.avgError W ≤ W.spectrumTail p n τ + M * (2 : ℝ) ^ (-τ) := by
-  sorry
+  classical
+  have hMR : (0 : ℝ) < M := by exact_mod_cast hM
+  have hτ : (0 : ℝ) < (2 : ℝ) ^ (-τ) := Real.rpow_pos_of_pos (by norm_num) _
+  have hper : ∀ m : Fin M,
+      ∑ cb : Fin M → Fin n → X,
+          ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+          * (randomCode W p hM cb τ).condError W m
+        ≤ W.spectrumTail p n τ + (M : ℝ) * (2 : ℝ) ^ (-τ) := by
+    intro m
+    calc ∑ cb : Fin M → Fin n → X,
+            ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+            * (randomCode W p hM cb τ).condError W m
+        ≤ ∑ cb : Fin M → Fin n → X,
+            ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+            * ((∑ y : Fin n → Y, if m ∈ passSet W p cb τ y then 0
+                  else ((W.power n).transition (cb m) y).toReal)
+              + ∑ m' ∈ Finset.univ.erase m, ∑ y : Fin n → Y,
+                  (if m' ∈ passSet W p cb τ y then
+                    ((W.power n).transition (cb m) y).toReal else 0)) :=
+          Finset.sum_le_sum fun cb _ ↦
+            mul_le_mul_of_nonneg_left (condError_randomCode_le W p hM cb τ m)
+              ENNReal.toReal_nonneg
+      _ = (∑ cb : Fin M → Fin n → X,
+              ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+              * ∑ y : Fin n → Y, if m ∈ passSet W p cb τ y then 0
+                  else ((W.power n).transition (cb m) y).toReal)
+            + ∑ m' ∈ Finset.univ.erase m, ∑ cb : Fin M → Fin n → X,
+                ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+                * ∑ y : Fin n → Y, (if m' ∈ passSet W p cb τ y then
+                    ((W.power n).transition (cb m) y).toReal else 0) := by
+          have hd : ∀ cb : Fin M → Fin n → X,
+              ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+              * ((∑ y : Fin n → Y, if m ∈ passSet W p cb τ y then 0
+                    else ((W.power n).transition (cb m) y).toReal)
+                + ∑ m' ∈ Finset.univ.erase m, ∑ y : Fin n → Y,
+                    (if m' ∈ passSet W p cb τ y then
+                      ((W.power n).transition (cb m) y).toReal else 0))
+              = ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+                  * (∑ y : Fin n → Y, if m ∈ passSet W p cb τ y then 0
+                      else ((W.power n).transition (cb m) y).toReal)
+                + ∑ m' ∈ Finset.univ.erase m,
+                    ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+                    * ∑ y : Fin n → Y, (if m' ∈ passSet W p cb τ y then
+                        ((W.power n).transition (cb m) y).toReal else 0) := by
+            intro cb
+            rw [mul_add]
+            congr 1
+            exact Finset.mul_sum _ _ _
+          rw [Finset.sum_congr rfl fun cb _ ↦ hd cb, Finset.sum_add_distrib]
+          congr 1
+          exact Finset.sum_comm
+      _ ≤ W.spectrumTail p n τ + (M : ℝ) * (2 : ℝ) ^ (-τ) := by
+          refine add_le_add (ens_term_one_le W p n τ m) ?_
+          calc ∑ m' ∈ Finset.univ.erase m, ∑ cb : Fin M → Fin n → X,
+                  ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+                  * ∑ y : Fin n → Y, (if m' ∈ passSet W p cb τ y then
+                      ((W.power n).transition (cb m) y).toReal else 0)
+              ≤ ∑ _m' ∈ Finset.univ.erase m, (2 : ℝ) ^ (-τ) :=
+                Finset.sum_le_sum fun m' hm' ↦
+                  ens_term_two_le W p n τ (Finset.ne_of_mem_erase hm')
+            _ = ((M : ℝ) - 1) * (2 : ℝ) ^ (-τ) := by
+                rw [Finset.sum_const, Finset.card_erase_of_mem (Finset.mem_univ m),
+                  Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+                congr 1
+                have : (1 : ℕ) ≤ M := hM
+                push_cast [Nat.cast_sub this]
+                ring
+            _ ≤ (M : ℝ) * (2 : ℝ) ^ (-τ) := by nlinarith
+  have havg : ∑ cb : Fin M → Fin n → X,
+      ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+      * (randomCode W p hM cb τ).avgError W
+      ≤ W.spectrumTail p n τ + (M : ℝ) * (2 : ℝ) ^ (-τ) := by
+    have hrw : ∀ cb : Fin M → Fin n → X,
+        ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+        * (randomCode W p hM cb τ).avgError W
+        = (M : ℝ)⁻¹ * ∑ m : Fin M,
+            ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+            * (randomCode W p hM cb τ).condError W m := by
+      intro cb
+      rw [BlockCode.avgError, mul_left_comm, Finset.mul_sum]
+      rfl
+    rw [Finset.sum_congr rfl fun cb _ ↦ hrw cb, ← Finset.mul_sum, Finset.sum_comm]
+    calc (M : ℝ)⁻¹ * ∑ m : Fin M, ∑ cb : Fin M → Fin n → X,
+            ((PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p) cb).toReal
+            * (randomCode W p hM cb τ).condError W m
+        ≤ (M : ℝ)⁻¹ * ∑ _m : Fin M, (W.spectrumTail p n τ + (M : ℝ) * (2 : ℝ) ^ (-τ)) := by
+          refine mul_le_mul_of_nonneg_left (Finset.sum_le_sum fun m _ ↦ hper m) (by positivity)
+      _ = W.spectrumTail p n τ + (M : ℝ) * (2 : ℝ) ^ (-τ) := by
+          rw [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul,
+            ← mul_assoc, inv_mul_cancel₀ (ne_of_gt hMR), one_mul]
+  obtain ⟨cb, _, hcb⟩ := exists_le_of_sum_toReal_mul_le
+    (PMF.pi fun _ : Fin M ↦ PMF.pi fun _ : Fin n ↦ p)
+    (fun cb ↦ (randomCode W p hM cb τ).avgError W) havg
+  exact ⟨randomCode W p hM cb τ, rfl, hcb⟩
 
 /-- **The weak law for the information spectrum.**  The normalised `n`-letter information
 density concentrates at the mutual information, so the probability that it falls short of
